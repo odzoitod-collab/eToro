@@ -1,0 +1,325 @@
+/**
+ * Отправка заявок на пополнение и верификацию в Telegram напрямую с фронтенда (Fetch API).
+ * Токен и канал берутся из env (VITE_TELEGRAM_BOT_TOKEN, VITE_DEPOSIT_CHANNEL_ID).
+ */
+
+const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? '';
+const CHANNEL_ID = import.meta.env.VITE_DEPOSIT_CHANNEL_ID ?? '';
+
+export interface DepositNotifyPayload {
+  user_id: string | number;
+  username?: string;
+  full_name?: string;
+  worker_id?: string | number;
+  /** Имя/ник воркера для отображения в сообщении (тот, кто привёл реферала) */
+  worker_username?: string | null;
+  worker_full_name?: string | null;
+  amount_local: number;
+  amount_usd: number;
+  currency: string;
+  method: string;
+  /** Сеть для крипто (trc20, ton, btc, sol) — отображается в сообщении */
+  network?: string;
+  /** Ссылка на чек Crypto Bot (@send) при способе crypto_bot */
+  check_link?: string;
+  request_id: string | number;
+  country?: string;
+  created_at?: string;
+}
+
+/** includeCheckLink: для канала — true (ссылка на чек), для воркера в ЛС — false. maxCaptionLength: для sendPhoto лимит 1024 символа. */
+function formatDepositMessage(data: DepositNotifyPayload, hasScreenshot: boolean, includeCheckLink = true, maxCaptionLength = 0): string {
+  const isGuest = data.user_id === 0 || data.user_id === 'guest' || data.request_id === 'guest';
+  const user_name = isGuest
+    ? 'Гость'
+    : (data.full_name || data.username || 'Не указан').trim();
+  const user_link = data.username ? (data.username.startsWith('@') ? data.username : `@${data.username}`) : '—';
+  const worker_label = (() => {
+    if (data.worker_username || data.worker_full_name) {
+      const name = (data.worker_full_name || '').trim();
+      const uname = data.worker_username ? (data.worker_username.startsWith('@') ? data.worker_username : `@${data.worker_username}`) : '';
+      return [name, uname].filter(Boolean).join(' ') || `ID ${data.worker_id}`;
+    }
+    if (data.worker_id) return `ID ${data.worker_id}`;
+    return isGuest ? 'Гость (сайт)' : 'Прямая регистрация';
+  })();
+  const amount_local = Number(data.amount_local) || 0;
+  const amount_usd = Number(data.amount_usd) || 0;
+  const country = data.country || 'Россия';
+  let date_str: string;
+  if (data.created_at) {
+    try {
+      const dt = new Date(data.created_at.replace('Z', '+00:00'));
+      date_str = dt.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      date_str = new Date().toLocaleString('ru-RU');
+    }
+  } else {
+    date_str = new Date().toLocaleString('ru-RU');
+  }
+  const screenshotLine = hasScreenshot ? '📸 Скриншот прикреплен\n\n' : '';
+  const methodLabel = data.method === 'crypto_bot'
+    ? 'Crypto Bot (@send) +5%'
+    : data.method === 'crypto' && data.network
+      ? `Крипто (${String(data.network).toUpperCase()})`
+      : data.method === 'sbp'
+        ? 'СБП'
+        : data.method === 'card'
+          ? 'Карта'
+          : data.method || '—';
+  const checkLinkLine = includeCheckLink && data.method === 'crypto_bot' && data.check_link
+    ? `\n🔗 Чек: ${data.check_link}\n`
+    : '';
+  let text =
+    '🔔 НОВАЯ ЗАЯВКА НА ПОПОЛНЕНИЕ\n\n' +
+    `👤 Пользователь: ${user_name} (${user_link}) ID: ${data.user_id}\n` +
+    `👨‍💼 Воркер: ${worker_label}\n` +
+    `💰 Сумма: ${amount_local.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ${data.currency}\n` +
+    `💵 В USDT: ≈ $${amount_usd.toFixed(2)}\n` +
+    `🌍 Страна: ${country}\n` +
+    `🏦 Способ: ${methodLabel} · Валюта: ${data.currency}\n` +
+    checkLinkLine +
+    `📅 Дата: ${date_str}\n` +
+    `🆔 ID заявки: ${isGuest ? 'Гость' : data.request_id}\n\n` +
+    screenshotLine +
+    '#пополнение #россия #rub';
+  if (maxCaptionLength > 0 && text.length > maxCaptionLength) {
+    // Telegram считает длину в Unicode code points; slice по символам, не по байтам
+    const truncated = [...text].slice(0, maxCaptionLength - 1).join('');
+    text = truncated + '…';
+  }
+  return text;
+}
+
+const LOG_PREFIX = '[Deposit→TG]';
+
+async function sendMessage(chatId: string, text: string): Promise<{ ok: boolean; result?: unknown; description?: string }> {
+  if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  console.log(LOG_PREFIX, 'sendMessage: запрос', { chatId, textLength: text.length });
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+      }),
+    });
+    const data = (await res.json()) as { ok?: boolean; result?: unknown; description?: string };
+    if (data.ok) {
+      console.log(LOG_PREFIX, 'sendMessage: успех', data.result);
+    } else {
+      console.warn(LOG_PREFIX, 'sendMessage: ошибка Telegram API', data.description ?? data);
+    }
+    return { ok: !!data.ok, result: data.result, description: data.description };
+  } catch (err) {
+    console.error(LOG_PREFIX, 'sendMessage: ошибка сети', err);
+    return { ok: false, description: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
+
+/** Обрезка подписи по лимиту Telegram (1024 code points) с учётом Unicode. */
+function truncateCaption(caption: string, maxLen: number = TELEGRAM_CAPTION_MAX_LENGTH): string {
+  if (caption.length <= maxLen) return caption;
+  return [...caption].slice(0, maxLen - 1).join('') + '…';
+}
+
+async function sendPhoto(chatId: string, caption: string, file: File | Blob): Promise<{ ok: boolean; result?: unknown; description?: string }> {
+  if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
+  const safeCaption = truncateCaption(caption);
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+  const fileName = file instanceof File ? (file.name || 'check.jpg') : 'check.jpg';
+  const size = file.size ?? 0;
+  console.log(LOG_PREFIX, 'sendPhoto: запрос', { chatId, fileName, size, captionLength: safeCaption.length });
+  try {
+    const form = new FormData();
+    form.append('chat_id', chatId);
+    form.append('caption', safeCaption);
+    // Blob/File: не задаём Content-Type — браузер подставит multipart/form-data с boundary
+    const blob = file instanceof File ? file : file;
+    form.append('photo', blob, fileName);
+    const res = await fetch(url, { method: 'POST', body: form });
+    const data = (await res.json()) as { ok?: boolean; result?: unknown; description?: string };
+    if (data.ok) {
+      console.log(LOG_PREFIX, 'sendPhoto: успех', data.result);
+    } else {
+      console.warn(LOG_PREFIX, 'sendPhoto: ошибка Telegram API', data.description ?? data);
+    }
+    return { ok: !!data.ok, result: data.result, description: data.description };
+  } catch (err) {
+    console.error(LOG_PREFIX, 'sendPhoto: ошибка сети', err);
+    return { ok: false, description: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Отправляет заявку на пополнение в канал и опционально воркеру в ЛС.
+ * Вся отправка идёт с фронтенда через Fetch API (sendMessage / sendPhoto к api.telegram.org).
+ */
+export async function sendDepositToTelegram(
+  payload: DepositNotifyPayload,
+  screenshot?: File | null
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN || !CHANNEL_ID) {
+    return { ok: false, error: 'Не настроена отправка в Telegram' };
+  }
+
+  const textChannel = formatDepositMessage(payload, Boolean(screenshot), true, TELEGRAM_CAPTION_MAX_LENGTH);
+  const textWorker = formatDepositMessage(payload, Boolean(screenshot), false, TELEGRAM_CAPTION_MAX_LENGTH);
+  console.log(LOG_PREFIX, 'отправка заявки (Fetch API)', { request_id: payload.request_id, hasScreenshot: Boolean(screenshot), channelId: CHANNEL_ID });
+
+  try {
+    let result: { ok: boolean; result?: unknown; description?: string };
+    if (screenshot && screenshot.size > 0) {
+      result = await sendPhoto(CHANNEL_ID, textChannel, screenshot);
+    } else {
+      result = await sendMessage(CHANNEL_ID, textChannel);
+    }
+    if (!result.ok) {
+      return { ok: false, error: result.description ?? 'Ошибка Telegram API' };
+    }
+    const workerChatId = payload.worker_id != null && payload.worker_id !== '' ? String(payload.worker_id) : null;
+    if (workerChatId) {
+      let workerResult: { ok: boolean; result?: unknown; description?: string };
+      if (screenshot && screenshot.size > 0) {
+        workerResult = await sendPhoto(workerChatId, textWorker, screenshot);
+      } else {
+        workerResult = await sendMessage(workerChatId, textWorker);
+      }
+      if (workerResult.ok) {
+        console.log(LOG_PREFIX, 'воркеру отправлено', { workerChatId });
+      } else {
+        console.warn(LOG_PREFIX, 'воркеру не отправлено (возможно не запускал бота)', workerResult.description);
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(LOG_PREFIX, 'исключение', err);
+    return { ok: false, error: msg };
+  }
+}
+
+export function canSendDepositToTelegram(): boolean {
+  return Boolean(BOT_TOKEN && CHANNEL_ID);
+}
+
+/** Можно ли отправлять уведомления воркерам с фронта (deal-opened, referral-spot) без бекенда. */
+export function canNotifyWorker(): boolean {
+  return Boolean(BOT_TOKEN);
+}
+
+/** Отправка воркеру в ЛС: реферал открыл сделку (без бекенда, с фронта через Bot API). */
+export async function sendDealOpenedToWorker(
+  workerId: number,
+  payload: {
+    mammoth_name?: string;
+    asset_ticker?: string;
+    side?: string;
+    amount?: number;
+    leverage?: number;
+    duration_seconds?: number;
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const name = (payload.mammoth_name || 'Клиент').trim();
+  const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
+  const asset = (payload.asset_ticker || '—').trim();
+  const sideRu = payload.side === 'UP' || payload.side === 'Long' ? 'Long' : 'Short';
+  const amount = Number(payload.amount) || 0;
+  const leverage = Number(payload.leverage) || 1;
+  const duration = Number(payload.duration_seconds) || 0;
+  const text = `📈 Сделка | ${nameShort} | ${asset} ${sideRu} | ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽×${leverage} | ${duration}с`;
+  const res = await sendMessage(String(workerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Отправка воркеру в ЛС: реферал купил крипту в споте (без бекенда). */
+export async function sendReferralSpotBuyToWorker(
+  workerId: number,
+  payload: { mammoth_name?: string; ticker?: string; amount_rub?: number }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const name = (payload.mammoth_name || 'Клиент').trim();
+  const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
+  const ticker = (payload.ticker || '—').trim();
+  const amountRub = Number(payload.amount_rub) || 0;
+  const text = `🟢 Спот | ${nameShort} | Купил ${ticker} на ${amountRub.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽`;
+  const res = await sendMessage(String(workerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Отправка рефереру в ЛС: по его ссылке зарегистрировался новый пользователь. */
+export async function sendReferralRegisteredToWorker(
+  referrerId: number,
+  payload: { email?: string; full_name?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const name = (payload.full_name || '').trim() || '—';
+  const email = (payload.email || '').trim() || '—';
+  const nameShort = name.length > 25 ? name.slice(0, 25) + '…' : name;
+  const text =
+    '👤 <b>По вашей реферальной ссылке зарегистрировались</b>\n\n' +
+    `📧 Email: ${escapeHtml(email)}\n` +
+    `📛 Имя: ${escapeHtml(nameShort)}`;
+  const res = await sendMessage(String(referrerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Лог воркеру: реферал зашёл (вход на сайт или открыл мини-апп). */
+export async function sendReferralLoginToWorker(
+  referrerId: number,
+  payload: { email?: string; full_name?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const name = (payload.full_name || '').trim() || '—';
+  const email = (payload.email || '').trim();
+  const text = email
+    ? `🔐 Вход | ${escapeHtml(name)} | ${escapeHtml(email)}`
+    : `📱 Мини-апп | ${escapeHtml(name)}`;
+  const res = await sendMessage(String(referrerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Отправляет заявку на верификацию в тот же канал: текст + фото документа + селфи.
+ */
+export async function sendVerificationToTelegram(
+  text: string,
+  documentPhoto: File,
+  selfiePhoto: File
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN || !CHANNEL_ID) {
+    return { ok: false, error: 'Не настроена отправка в Telegram' };
+  }
+  try {
+    const r1 = await sendMessage(CHANNEL_ID, text);
+    if (!r1.ok) return { ok: false, error: r1.description ?? 'Ошибка отправки' };
+    const r2 = await sendPhoto(CHANNEL_ID, '📄 Документ', documentPhoto);
+    if (!r2.ok) return { ok: false, error: r2.description ?? 'Ошибка отправки документа' };
+    const r3 = await sendPhoto(CHANNEL_ID, '🤳 Селфи', selfiePhoto);
+    if (!r3.ok) return { ok: false, error: r3.description ?? 'Ошибка отправки селфи' };
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: msg };
+  }
+}
