@@ -148,12 +148,11 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
             Haptic.tap();
             onNavigate('DEPOSIT');
           }}
-          className="w-full rounded-2xl bg-neon/8 border border-neon/40 px-3.5 py-2 flex items-center justify-between gap-3 shadow-[0_0_18px_rgba(0,255,170,0.25)] active:scale-[0.99] transition-transform"
+          className="w-full rounded-xl border border-neutral-700/80 bg-neutral-800/50 px-3 py-2 flex items-center justify-between gap-3 active:opacity-90 transition-opacity"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="h-2 w-2 rounded-full bg-neon animate-pulse shrink-0" />
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] text-neon font-semibold uppercase tracking-wide">
+              <span className="text-[11px] text-neutral-400">
                 Открытая П2П-сделка
               </span>
               <span className="text-[11px] text-neutral-300 truncate">
@@ -163,14 +162,14 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {p2pBanner.status === 'payment' ? (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-neutral-700 text-[11px] text-neutral-200 font-mono">
-                <Clock size={11} className="text-neon" />
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-neutral-700/50 text-[11px] text-neutral-300 font-mono">
+                <Clock size={11} className="text-neutral-400" />
                 {formatTime(p2pBanner.timeLeft)}
               </span>
             ) : (
-              <span className="text-[11px] text-neutral-400">Ожидание продавца</span>
+              <span className="text-[11px] text-neutral-500">Ожидание продавца</span>
             )}
-            <ArrowRight size={14} className="text-neon" />
+            <ArrowRight size={14} className="text-neutral-500" />
           </div>
         </button>
       )}
