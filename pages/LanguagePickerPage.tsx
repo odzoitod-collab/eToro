@@ -36,9 +36,9 @@ const LanguagePickerPage: React.FC<LanguagePickerPageProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-full animate-fade-in px-4 pt-2 pb-8">
+    <div className="flex flex-col min-h-full animate-fade-in px-4 pb-8">
       <PageHeader title={t('language_title')} onBack={onBack} />
-      <p className="text-xs text-textMuted mb-4 -mt-1">{t('language_subtitle')}</p>
+      <p className="text-xs text-textMuted mb-4 mt-1.5">{t('language_subtitle')}</p>
       <div className="flex flex-col gap-1">
         {LANGUAGES.map(({ code, labelKey }) => {
           const isSelected = locale === code;

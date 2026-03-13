@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Asset, Deal } from '../types';
-import { Clock, Zap, Check, X, ChevronDown, Info, BarChart3, FileText } from 'lucide-react';
+import { Clock, Zap, Check, X, ChevronDown, Info, BarChart3, FileText, Loader2, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { Haptic } from '../utils/haptics';
 import { useToast } from '../context/ToastContext';
@@ -15,6 +15,7 @@ import { spotBuy, spotSell } from '../lib/spot';
 import type { SpotHolding } from '../types';
 import CoinsPage from './CoinsPage';
 import BottomSheet from '../components/BottomSheet';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 import { Z_INDEX } from '../constants/zIndex';
 
 const MIN_DEAL_RUB = 100;
@@ -63,12 +64,15 @@ const TradingPage: React.FC<TradingPageProps> = ({
   const { user, tgid } = useUser();
   const { webUserId } = useWebAuth();
   const { requirePin } = usePin();
-  const { formatPrice, convertFromRub, convertToRub, symbol, currencyCode } = useCurrency();
+  const { formatPrice, convertFromRub, convertToRub, symbol, currencyCode, baseCurrency } = useCurrency();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('TRADE');
   const [tradeType, setTradeType] = useState<'futures' | 'spot'>(initialTradeType ?? 'futures');
   const [spotAction, setSpotAction] = useState<'buy' | 'sell'>(initialSpotAction ?? 'buy');
-  const [spotAmountRub, setSpotAmountRub] = useState<string>('1000');
+  /** Сумма покупки спот в валюте баланса — вводится в той же валюте, что и баланс (RUB, USD и т.д.) */
+  const [spotAmount, setSpotAmount] = useState<string>(() =>
+    baseCurrency === 'rub' ? '1000' : baseCurrency === 'usd' ? '50' : baseCurrency === 'eur' ? '50' : '100'
+  );
   const [spotQuantity, setSpotQuantity] = useState<string>('');
   const [spotLoading, setSpotLoading] = useState(false);
   const [leverage, setLeverage] = useState(10);
@@ -104,6 +108,12 @@ const TradingPage: React.FC<TradingPageProps> = ({
       setSpotQuantity(String(currentHolding.amount));
     }
   }, [initialTradeType, initialSpotAction, asset?.ticker, currentHolding?.amount]);
+
+  /** Дефолт суммы спот при смене валюты баланса (синхронизация с бэком или смена в настройках) */
+  useEffect(() => {
+    const defaultAmount = baseCurrency === 'rub' ? '1000' : baseCurrency === 'usd' ? '50' : baseCurrency === 'eur' ? '50' : '100';
+    setSpotAmount(defaultAmount);
+  }, [baseCurrency]);
 
   useEffect(() => { setChartLoaded(false); }, [asset?.ticker]);
 
@@ -214,29 +224,25 @@ const TradingPage: React.FC<TradingPageProps> = ({
       setShowConfirm(false);
       setShowSuccess(true);
       
-      // Animation delay before actually creating deal and navigating
-      setTimeout(() => {
-          const displayAmount = parseFloat(amount.replace(',', '.')) || 0;
-          const amountRub = Math.max(0, Math.round(convertToRub(displayAmount)));
-          const newDeal: Deal = {
-            id: Date.now().toString(),
-            assetTicker: asset.ticker,
-            side: side,
-            amount: amountRub,
-            leverage: leverage,
-            entryPrice: livePrice,
-            startTime: Date.now(),
-            durationSeconds: duration,
-            status: 'ACTIVE'
-          };
-          onOpenDeal(newDeal);
-          setShowSuccess(false);
-      }, 1500);
+      const displayAmount = parseFloat(amount.replace(',', '.')) || 0;
+      const amountRub = Math.max(0, Math.round(convertToRub(displayAmount)));
+      const newDeal: Deal = {
+        id: Date.now().toString(),
+        assetTicker: asset.ticker,
+        side: side,
+        amount: amountRub,
+        leverage: leverage,
+        entryPrice: livePrice,
+        startTime: Date.now(),
+        durationSeconds: duration,
+        status: 'ACTIVE'
+      };
+      onOpenDeal(newDeal);
   };
 
   const handleSpotBuy = async () => {
     if (!userIdNum || livePrice <= 0) return;
-    const displayAmount = parseFloat(spotAmountRub.replace(',', '.')) || 0;
+    const displayAmount = parseFloat(spotAmount.replace(',', '.')) || 0;
     const amountRub = convertToRub(displayAmount);
     if (amountRub < MIN_DEAL_RUB) {
       toast.show(`${t('min_deal_toast', { amount: formatPrice(MIN_DEAL_RUB) })} ${symbol}`, 'error');
@@ -536,9 +542,9 @@ const TradingPage: React.FC<TradingPageProps> = ({
                                     </label>
                                     <div className="bg-card border border-border rounded-lg px-3 py-1.5 flex items-center justify-between focus-within:border-neon transition-colors">
                                         <input
-                                            type="number"
+                                            type="text"
                                             inputMode="decimal"
-                                            value={spotAmountRub}
+                                            value={spotAmount}
                                             onChange={(e) => setSpotAmountRub(e.target.value)}
                                             className="w-full bg-transparent text-white font-mono text-lg font-bold outline-none placeholder-neutral-700"
                                             placeholder="0"
@@ -552,12 +558,12 @@ const TradingPage: React.FC<TradingPageProps> = ({
                                     </div>
                                 </div>
                                 {/* Расчёт: получите ≈ X {ticker} */}
-                                {livePrice > 0 && parseFloat(spotAmountRub.replace(',', '.')) >= MIN_DEAL_RUB && (
+                                {livePrice > 0 && convertToRub(parseFloat(spotAmount.replace(',', '.')) || 0) >= MIN_DEAL_RUB && (
                                   <div className="rounded-lg border border-border bg-card px-2 py-1.5 flex items-center justify-between gap-2">
                                     <span className="text-[10px] text-neutral-500 uppercase font-bold">{t('you_receive')}</span>
                                     <span className="text-xs font-mono font-bold text-neon">
                                       ≈ {(() => {
-                                        const displayAmount = parseFloat(spotAmountRub.replace(',', '.')) || 0;
+                                        const displayAmount = parseFloat(spotAmount.replace(',', '.')) || 0;
                                         const base = livePrice > 0 ? convertToRub(displayAmount) / livePrice : 0;
                                         const value = base > 0 ? base.toFixed(8) : '0';
                                         return `${value} ${asset.ticker}`;
@@ -568,7 +574,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                                 <p className="text-[9px] text-neutral-500 px-0.5 leading-tight">{t('spot_buy_note')}</p>
                                 <button
                                     type="button"
-                                    disabled={spotLoading || tradingBlocked || (parseFloat(spotAmountRub) || 0) < MIN_DEAL_RUB}
+                                    disabled={spotLoading || tradingBlocked || convertToRub(parseFloat(spotAmount.replace(',', '.')) || 0) < MIN_DEAL_RUB}
                                     onClick={() => { Haptic.tap(); setShowSpotConfirm('buy'); }}
                                     className="w-full py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-neon text-black hover:opacity-90 hover-glow"
                                 >
@@ -584,7 +590,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                                     <label className="text-[10px] text-neutral-500 uppercase font-bold">{asset.ticker} — {t('amount_label')}</label>
                                     <div className="bg-surface border border-neutral-800 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2 focus-within:border-neon/50 transition-colors">
                                         <input
-                                            type="number"
+                                            type="text"
                                             inputMode="decimal"
                                             value={spotQuantity}
                                             onChange={(e) => setSpotQuantity(e.target.value)}
@@ -667,7 +673,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                           </label>
                           <div className="bg-card border border-border rounded-lg px-3 py-1.5 flex items-center justify-between focus-within:border-neon transition-colors">
                             <input 
-                              type="number"
+                              type="text"
                               inputMode="decimal"
                               value={amount}
                               onChange={(e) => setAmount(e.target.value)}
@@ -857,29 +863,18 @@ const TradingPage: React.FC<TradingPageProps> = ({
             <span className="font-mono text-textPrimary">{duration} {t('sec')}</span>
           </div>
         </div>
-        <div className="flex space-x-3">
-          <button
-            type="button"
-            onClick={() => { Haptic.tap(); setShowConfirm(false); }}
-            className="flex-1 py-3 rounded-xl bg-neutral-800 text-textPrimary font-medium active:scale-[0.98] transition-etoro"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const userId = tgid || webUserId?.toString();
-              if (userId) {
-                requirePin(userId, t('enter_pin_for_confirm'), handleConfirmTrade);
-              } else {
-                handleConfirmTrade();
-              }
-            }}
-            className="flex-1 py-3 rounded-xl bg-neon text-black font-bold active:scale-[0.98] transition-etoro hover-glow"
-          >
-            {t('confirm')}
-          </button>
-        </div>
+        <BottomSheetFooter
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={() => {
+            const userId = tgid || webUserId?.toString();
+            if (userId) {
+              requirePin(userId, t('enter_pin_for_confirm'), handleConfirmTrade);
+            } else {
+              handleConfirmTrade();
+            }
+          }}
+          confirmLabel={t('confirm')}
+        />
       </BottomSheet>
 
       {/* SPOT CONFIRMATION MODAL */}
@@ -901,14 +896,14 @@ const TradingPage: React.FC<TradingPageProps> = ({
               <div className="flex justify-between items-center text-sm">
                 <span className="text-textSecondary">{t('amount_label')}</span>
                 <span className="font-mono text-textPrimary">
-                  {formatPrice(convertToRub(parseFloat(spotAmountRub.replace(',', '.')) || 0))} {symbol}
+                  {formatPrice(convertToRub(parseFloat(spotAmount.replace(',', '.')) || 0))} {symbol}
                 </span>
               </div>
               {livePrice > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-textSecondary">{t('you_receive')}</span>
                   <span className="font-mono text-neon">
-                    ≈ {(convertToRub(parseFloat(spotAmountRub.replace(',', '.')) || 0) / livePrice).toFixed(8)} {asset.ticker}
+                    ≈ {(convertToRub(parseFloat(spotAmount.replace(',', '.')) || 0) / livePrice).toFixed(8)} {asset.ticker}
                   </span>
                 </div>
               )}
@@ -931,26 +926,12 @@ const TradingPage: React.FC<TradingPageProps> = ({
             </>
           )}
         </div>
-        <div className="flex space-x-3">
-          <button
-            type="button"
-            onClick={() => { Haptic.tap(); setShowSpotConfirm(null); }}
-            className="flex-1 py-3 rounded-xl bg-neutral-800 text-textPrimary font-medium active:scale-[0.98] transition-etoro"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              Haptic.tap();
-              handleSpotConfirmWithPin();
-            }}
-            disabled={spotLoading}
-            className="flex-1 py-3 rounded-xl bg-neon text-black font-bold active:scale-95 transition-transform disabled:opacity-50 hover-glow"
-          >
-            {spotLoading ? '...' : t('confirm')}
-          </button>
-        </div>
+        <BottomSheetFooter
+          onCancel={() => setShowSpotConfirm(null)}
+          onConfirm={handleSpotConfirmWithPin}
+          confirmLabel={t('confirm')}
+          confirmLoading={spotLoading}
+        />
       </BottomSheet>
 
       {/* SUCCESS ANIMATION OVERLAY */}
@@ -958,7 +939,6 @@ const TradingPage: React.FC<TradingPageProps> = ({
         <div
           className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in"
           style={{ zIndex: Z_INDEX.modal }}
-          onClick={() => setShowSuccess(false)}
           role="dialog"
           aria-live="polite"
         >
@@ -966,18 +946,21 @@ const TradingPage: React.FC<TradingPageProps> = ({
             className="flex flex-col items-center px-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative flex items-center justify-center h-24 w-24 rounded-full bg-up/20 mb-4 animate-scale-in">
+            <div className="relative flex items-center justify-center h-24 w-24 rounded-full bg-up/20 mb-4 animate-deal-success">
               <div className="absolute inset-0 rounded-full border-2 border-up animate-ping opacity-20" />
-              <Check size={48} className="text-up animate-check-stroke" strokeWidth={3} />
+              <CheckCircle2 size={52} className="text-up" strokeWidth={3} />
             </div>
             <h3 className="text-xl font-bold text-textPrimary tracking-wide">{t('deal_created')}</h3>
             <p className="text-textMuted mt-2 text-sm font-mono">{t('going_to_portfolio')}</p>
             <button
               type="button"
-              onClick={() => setShowSuccess(false)}
+              onClick={() => {
+                setShowSuccess(false);
+                onBack();
+              }}
               className="mt-6 px-6 py-3 rounded-xl bg-neon text-black font-bold active:scale-95"
             >
-              OK
+              {t('view_positions')}
             </button>
           </div>
         </div>
@@ -986,17 +969,15 @@ const TradingPage: React.FC<TradingPageProps> = ({
       {/* ASSET SEARCH OVERLAY */}
       {showAssetSearch && (
         <div className="fixed inset-0 z-[60] bg-background animate-fade-in">
-          <div className="h-full w-full max-w-md mx-auto relative">
-            <button
-              type="button"
-              onClick={() => { Haptic.tap(); setShowAssetSearch(false); }}
-              className="fixed top-3 right-3 z-[80] w-9 h-9 rounded-full bg-card border border-border flex items-center justify-center text-textSecondary hover:text-textPrimary active:scale-95 transition-transform"
-              aria-label={t('close')}
-            >
-              <X size={18} />
-            </button>
-
-            <div className="h-full">
+          <div className="h-full w-full max-w-md mx-auto flex flex-col">
+            <PageHeader
+              title={t('search_pair')}
+              onBack={() => {
+                Haptic.tap();
+                setShowAssetSearch(false);
+              }}
+            />
+            <div className="flex-1 min-h-0">
               <CoinsPage
                 onNavigateToTrading={(a) => {
                   Haptic.light();

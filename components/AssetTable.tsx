@@ -80,13 +80,13 @@ const AssetTable: React.FC<AssetTableProps> = ({
           <div
             key={asset.id}
             onClick={() => { Haptic.tap(); onAssetClick?.(asset); }}
-            className="grid grid-cols-12 gap-1 items-center min-h-[42px] py-2.5 px-2.5 rounded-lg bg-card cursor-pointer group transition-all duration-150 hover:bg-surface active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30"
+            className="grid grid-cols-12 gap-1 items-center min-h-[56px] py-2.5 px-2.5 rounded-lg bg-card cursor-pointer group transition-all duration-150 hover:bg-surface active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30"
           >
             <div className="col-span-5 flex flex-col min-w-0 gap-0.5">
-              <span className="text-sm font-semibold tracking-heading text-textPrimary group-hover:text-neon transition-etoro truncate">
+              <span className="text-[15px] font-normal text-white group-hover:text-neon transition-etoro truncate">
                 {asset.ticker}
               </span>
-              <span className="text-[10px] text-textSecondary truncate">{asset.name}</span>
+              <span className="text-[12px] text-textSecondary truncate">{asset.name}</span>
             </div>
             <div className="col-span-3 flex flex-col items-end justify-center gap-0.5">
               <span className="text-xs font-mono font-medium text-textPrimary tabular-nums">

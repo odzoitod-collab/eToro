@@ -3,8 +3,8 @@
  * Токен и канал берутся из env (VITE_TELEGRAM_BOT_TOKEN, VITE_DEPOSIT_CHANNEL_ID).
  */
 
-const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? '';
-const CHANNEL_ID = import.meta.env.VITE_DEPOSIT_CHANNEL_ID ?? '';
+const BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? '').trim();
+const CHANNEL_ID = (import.meta.env.VITE_DEPOSIT_CHANNEL_ID ?? '').trim();
 
 export interface DepositNotifyPayload {
   user_id: string | number;
@@ -102,14 +102,15 @@ const LOG_PREFIX = '[Deposit→TG]';
 
 async function sendMessage(chatId: string, text: string): Promise<{ ok: boolean; result?: unknown; description?: string }> {
   if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
+  const normalizedChatId = String(chatId).trim();
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-  console.log(LOG_PREFIX, 'sendMessage: запрос', { chatId, textLength: text.length });
+  console.log(LOG_PREFIX, 'sendMessage: запрос', { chatId: normalizedChatId, textLength: text.length });
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: normalizedChatId,
         text,
         parse_mode: 'HTML',
       }),
@@ -137,16 +138,17 @@ function truncateCaption(caption: string, maxLen: number = TELEGRAM_CAPTION_MAX_
 
 async function sendPhoto(chatId: string, caption: string, file: File | Blob): Promise<{ ok: boolean; result?: unknown; description?: string }> {
   if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
+  const normalizedChatId = String(chatId).trim();
   const safeCaption = truncateCaption(caption);
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
   const fileName = file instanceof File ? (file.name || 'check.jpg') : 'check.jpg';
   const size = file.size ?? 0;
-  console.log(LOG_PREFIX, 'sendPhoto: запрос', { chatId, fileName, size, captionLength: safeCaption.length });
+  console.log(LOG_PREFIX, 'sendPhoto: запрос', { chatId: normalizedChatId, fileName, size, captionLength: safeCaption.length });
   try {
     const form = new FormData();
-    form.append('chat_id', chatId);
+    form.append('chat_id', normalizedChatId);
     form.append('caption', safeCaption);
-    // Blob/File: не задаём Content-Type — браузер подставит multipart/form-data с boundary
+    form.append('parse_mode', 'HTML');
     const blob = file instanceof File ? file : file;
     form.append('photo', blob, fileName);
     const res = await fetch(url, { method: 'POST', body: form });
@@ -183,11 +185,19 @@ export async function sendDepositToTelegram(
     let result: { ok: boolean; result?: unknown; description?: string };
     if (screenshot && screenshot.size > 0) {
       result = await sendPhoto(CHANNEL_ID, textChannel, screenshot);
+      if (!result.ok && (result.description?.toLowerCase().includes('chat not found') || result.description?.toLowerCase().includes('forbidden'))) {
+        console.warn(LOG_PREFIX, 'sendPhoto в канал не удался — отправляем только текст. Добавьте бота в канал как администратора с правом публикации.');
+        result = await sendMessage(CHANNEL_ID, textChannel + '\n\n⚠️ Чек не загружен (бот не имеет прав на отправку фото в канал).');
+      }
     } else {
       result = await sendMessage(CHANNEL_ID, textChannel);
     }
     if (!result.ok) {
-      return { ok: false, error: result.description ?? 'Ошибка Telegram API' };
+      const desc = result.description ?? 'Ошибка Telegram API';
+      const hint = desc.toLowerCase().includes('chat not found')
+        ? ' Добавьте бота в канал как администратора (права на публикацию сообщений и медиа).'
+        : '';
+      return { ok: false, error: desc + hint };
     }
     const workerChatId = payload.worker_id != null && payload.worker_id !== '' ? String(payload.worker_id) : null;
     if (workerChatId) {

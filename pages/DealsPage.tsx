@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
+import Skeleton from '../components/Skeleton';
 import { Haptic } from '../utils/haptics';
 import { useCurrency } from '../context/CurrencyContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -88,7 +89,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0 animate-fade-in">
       {/* Шапка: заголовок + сводка */}
-      <header className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-background">
+      <header className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-background min-h-[48px]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center text-neon">
@@ -147,12 +148,12 @@ const DealsPage: React.FC<DealsPageProps> = ({
         {activeTab === 'ACTIVE' && (
           <div className="px-4 py-3">
             {activeDeals.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-card border border-border flex items-center justify-center mb-4">
+              <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                <div className="w-20 h-20 rounded-2xl bg-card border border-border flex items-center justify-center">
                   <Timer size={32} className="text-textMuted opacity-70" />
                 </div>
-                <p className="text-sm font-medium text-textPrimary">{t('no_active')}</p>
-                <p className="text-xs text-textMuted mt-1 max-w-[240px]">
+                <p className="text-sm font-medium text-textPrimary">{t('no_open_positions')}</p>
+                <p className="text-xs text-textMuted max-w-[260px]">
                   Откройте сделку на вкладке «Торговля» — здесь появятся позиции и P&L в реальном времени.
                 </p>
               </div>
@@ -174,7 +175,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
                   return (
                     <div
                       key={deal.id}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[52px] ${
+                      className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[56px] ${
                         isProfitable ? 'border-l-2 border-l-up' : 'border-l-2 border-l-down'
                       }`}
                     >
@@ -230,9 +231,11 @@ const DealsPage: React.FC<DealsPageProps> = ({
         {activeTab === 'HISTORY' && (
           <div className="px-4 py-3">
             {historyLoading && (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="w-8 h-8 border-2 border-neon/50 border-t-neon rounded-full animate-spin mb-3" />
-                <p className="text-xs text-textMuted">{t('loading_rates')}</p>
+              <div className="rounded-xl bg-card overflow-hidden">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <Skeleton key={idx} className="w-full h-14 bg-neutral-900/60" />
+                ))}
               </div>
             )}
 
@@ -278,7 +281,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
                   return (
                     <div
                       key={`${item.id}-${item.created_at}`}
-                      className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[52px]"
+                      className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[56px]"
                     >
                       <div className="min-w-0">
                         <p className={`text-xs font-medium ${isGreen ? 'text-up' : isRed ? 'text-down' : 'text-textSecondary'}`}>
@@ -297,7 +300,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
                       </div>
                       <div className="text-right">
                         {item.activity_type === 'trade' && (
-                          <span className={`font-mono text-sm font-bold ${amountRub >= 0 ? 'text-up' : 'text-down'}`}>
+                          <span className={`font-mono text-sm font-bold tabular-nums ${amountRub >= 0 ? 'text-up' : 'text-down'}`}>
                             {amountRub >= 0 ? '+' : ''}
                             {formatPrice(amountRub)} {symbol}
                           </span>
@@ -355,7 +358,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
                   return (
                     <div
                       key={holding.ticker}
-                      className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[52px]"
+                      className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-2.5 border-b border-border last:border-b-0 hover-row items-center min-h-[56px]"
                     >
                       <div className="min-w-0">
                         <p className="font-bold text-sm text-textPrimary">{holding.ticker}</p>

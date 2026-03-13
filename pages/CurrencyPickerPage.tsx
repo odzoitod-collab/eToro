@@ -67,9 +67,9 @@ const CurrencyPickerPage: React.FC<CurrencyPickerPageProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-full animate-fade-in px-4 pt-2 pb-8">
+    <div className="flex flex-col min-h-full animate-fade-in px-4 pb-8">
       <PageHeader title={t('currency_title')} onBack={onBack} />
-      <p className="text-xs text-textMuted mb-4 -mt-1">{t('currency_subtitle')}</p>
+      <p className="text-xs text-textMuted mb-4 mt-1.5">{t('currency_subtitle')}</p>
       <div className="relative mb-4">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
         <input

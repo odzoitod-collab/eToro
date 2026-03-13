@@ -110,6 +110,22 @@ export interface CoinPriceData {
 
 const FETCH_TIMEOUT_MS = 12_000;
 
+/** Публичный CORS-прокси для обхода блокировки при запросе с другого origin (например, Vercel). */
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+async function fetchWithCorsFallback(url: string, signal?: AbortSignal): Promise<Response> {
+  try {
+    const res = await fetch(url, { signal });
+    if (res.ok) return res;
+    throw new Error('Not OK');
+  } catch (e) {
+    const proxyUrl = CORS_PROXY + encodeURIComponent(url);
+    const proxyRes = await fetch(proxyUrl, { signal });
+    if (!proxyRes.ok) throw new Error('Proxy failed');
+    return proxyRes;
+  }
+}
+
 /**
  * Загружает цены и изменение за 24ч в рублях по списку тикеров.
  * Сначала пробуем CoinGecko (CORS в браузере обычно разрешён), затем Binance.
@@ -142,7 +158,7 @@ async function tryCoinGecko(tickers: string[]): Promise<Record<string, CoinPrice
     const ids = tickers.map((t) => TICKER_TO_COINGECKO_ID[t.toUpperCase()]).filter(Boolean);
     if (ids.length === 0) return {};
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.slice(0, 30).join(',')}&vs_currencies=rub&include_24hr_change=true`;
-    const res = await fetch(url, { signal: ac.signal });
+    const res = await fetchWithCorsFallback(url, ac.signal);
     clearTimeout(timeoutId);
     if (!res.ok) return {};
     const data: Record<string, { rub?: number; rub_24h_change?: number }> = await res.json();
@@ -167,8 +183,9 @@ async function tryBinance(tickers: string[]): Promise<Record<string, CoinPriceDa
     const symbols = tickers.map((t) => TICKER_TO_BINANCE[t.toUpperCase()]).filter(Boolean);
     if (symbols.length === 0) return {};
     const symbolsParam = encodeURIComponent(JSON.stringify(symbols));
+    const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbols=${symbolsParam}`;
     const [priceRes, rubRes] = await Promise.all([
-      fetch(`https://api.binance.com/api/v3/ticker/price?symbols=${symbolsParam}`, { signal: ac.signal }),
+      fetchWithCorsFallback(priceUrl, ac.signal),
       fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json', { signal: ac.signal }),
     ]);
     clearTimeout(timeoutId);

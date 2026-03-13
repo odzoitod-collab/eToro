@@ -159,7 +159,7 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0 animate-fade-in">
       {/* Шапка в стиле биржи */}
-      <header className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-background">
+      <header className="shrink-0 px-4 pt-4 pb-3 border-b border-border bg-background min-h-[48px]">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center text-neon">
             <ArrowLeftRight size={18} strokeWidth={2} />
@@ -264,15 +264,14 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || loading}
-            className="w-full touch-target min-h-[48px] py-3 rounded-xl bg-neon text-black font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all hover-glow flex items-center justify-center gap-2"
+            className="w-full touch-target min-h-[48px] py-3 rounded-xl bg-neon text-black font-bold text-sm disabled:opacity-70 disabled:pointer-events-none active:scale-[0.98] transition-all hover-glow flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
                 <Loader2 size={20} className="animate-spin shrink-0" />
-                <span>{t('exchange_btn')}</span>
               </>
             ) : (
-              t('exchange_btn')
+              <span>{t('exchange_btn')}</span>
             )}
           </button>
 

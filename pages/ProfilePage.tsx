@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Trophy, XCircle, BarChart3, HelpCircle, ChevronRight, ShieldCheck, ShieldAlert, KeyRound, DollarSign, Languages, LogOut, FileText } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import BottomSheet from '../components/BottomSheet';
-import Modal from '../components/Modal';
 import { Deal } from '../types';
 import { Haptic } from '../utils/haptics';
 import { useUser } from '../context/UserContext';
@@ -164,7 +163,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); onNavigateToLanguage(); }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <Languages size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -178,7 +177,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); onNavigateToCurrency(); }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <DollarSign size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -191,7 +190,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           <button
             type="button"
             onClick={() => { Haptic.tap(); setShowLegalModal(true); }}
-            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
           >
             <div className="flex items-center gap-2.5">
               <FileText size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -210,7 +209,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 setRepeatPinValue('');
                 setPinError('');
               }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <KeyRound size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -230,7 +229,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 setRepeatPinValue('');
                 setPinError('');
               }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <KeyRound size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -243,7 +242,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             href={supportLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group block hover:bg-surface active:scale-[0.99] transition-all"
+            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group block hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             onClick={() => Haptic.tap()}
           >
             <div className="flex items-center gap-2.5">
@@ -256,7 +255,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); logout(); window.location.href = '/'; }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <LogOut size={16} className="text-neutral-500 group-hover:text-red-400" />
@@ -268,13 +267,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
       </div>
 
-      {/* Модалка с лицензиями и партнёрами */}
-      <Modal
+      {/* Лист с лицензиями и партнёрами (expandable bottom sheet) */}
+      <BottomSheet
         open={showLegalModal}
         onClose={() => setShowLegalModal(false)}
         title={t('legal_title')}
+        variant="expandable"
       >
-        <div className="px-4 py-4 space-y-6 pb-8">
+        <div className="space-y-6 pb-4">
             {/* Лицензии — компактные карточки */}
             <section>
               <h3 className="text-xs font-semibold text-textSecondary uppercase tracking-cap mb-2 flex items-center gap-2">
@@ -362,7 +362,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               Информация приведена в демонстрационных целях. Изучите юридические документы компании перед использованием сервиса.
             </p>
           </div>
-      </Modal>
+      </BottomSheet>
 
       {/* Модалка смены пароля */}
       <BottomSheet
@@ -374,71 +374,86 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         }
         closeOnBackdrop
       >
-        {changePinStep === 'current' && (
-          <>
-            <PinKeypad
-              value={currentPinValue}
-              onChange={setCurrentPinValue}
-              onSubmit={async (pin) => {
-                const userId = tgid || webUserId?.toString();
-                if (userId) {
-                  const ok = await checkPin(userId, pin);
-                  if (ok) {
-                    setPinError('');
-                    setCurrentPinValue('');
-                    setChangePinStep('new');
-                  } else {
-                    Haptic.error();
-                    setPinError(t('pin_wrong'));
-                    setCurrentPinValue('');
+        <div className="space-y-4">
+          {changePinStep === 'current' && (
+            <>
+              <PinKeypad
+                value={currentPinValue}
+                onChange={setCurrentPinValue}
+                onSubmit={async (pin) => {
+                  const userId = tgid || webUserId?.toString();
+                  if (userId) {
+                    const ok = await checkPin(userId, pin);
+                    if (ok) {
+                      setPinError('');
+                      setCurrentPinValue('');
+                      setChangePinStep('new');
+                    } else {
+                      Haptic.error();
+                      setPinError(t('pin_wrong'));
+                      setCurrentPinValue('');
+                    }
                   }
-                }
-              }}
-              error={!!pinError}
-            />
-            {pinError && <p className="text-center text-red-500 text-xs mt-3">{pinError}</p>}
-          </>
-        )}
-        {changePinStep === 'new' && (
-          <PinKeypad
-            value={newPinValue}
-            onChange={setNewPinValue}
-            onSubmit={(pin) => {
-              newPinRef.current = pin;
-              setNewPinValue('');
-              setRepeatPinValue('');
-              setPinError('');
-              setChangePinStep('repeat');
-            }}
-            error={!!pinError}
-          />
-        )}
-        {changePinStep === 'repeat' && (
-          <>
+                }}
+                error={!!pinError}
+              />
+              {pinError && <p className="text-center text-red-500 text-xs mt-3">{pinError}</p>}
+            </>
+          )}
+          {changePinStep === 'new' && (
             <PinKeypad
-              value={repeatPinValue}
-              onChange={setRepeatPinValue}
-              onSubmit={async (pin) => {
-                if (pin !== newPinRef.current) {
-                  Haptic.error();
-                  setPinError(t('pin_mismatch'));
-                  setRepeatPinValue('');
-                  return;
-                }
+              value={newPinValue}
+              onChange={setNewPinValue}
+              onSubmit={(pin) => {
+                newPinRef.current = pin;
+                setNewPinValue('');
+                setRepeatPinValue('');
                 setPinError('');
-                const userId = tgid || webUserId?.toString();
-                if (userId) {
-                  await setPin(userId, pin);
-                  Haptic.success();
-                  toast.show(t('pin_changed'), 'success');
-                  setChangePinStep(null);
-                }
+                setChangePinStep('repeat');
               }}
               error={!!pinError}
             />
-            {pinError && <p className="text-center text-red-500 text-xs mt-3">{pinError}</p>}
-          </>
-        )}
+          )}
+          {changePinStep === 'repeat' && (
+            <>
+              <PinKeypad
+                value={repeatPinValue}
+                onChange={setRepeatPinValue}
+                onSubmit={async (pin) => {
+                  if (pin !== newPinRef.current) {
+                    Haptic.error();
+                    setPinError(t('pin_mismatch'));
+                    setRepeatPinValue('');
+                    return;
+                  }
+                  setPinError('');
+                  const userId = tgid || webUserId?.toString();
+                  if (userId) {
+                    await setPin(userId, pin);
+                    Haptic.success();
+                    toast.show(t('pin_changed'), 'success');
+                    setChangePinStep(null);
+                  }
+                }}
+                error={!!pinError}
+              />
+              {pinError && <p className="text-center text-red-500 text-xs mt-3">{pinError}</p>}
+            </>
+          )}
+        </div>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              Haptic.tap();
+              setChangePinStep(null);
+              setPinError('');
+            }}
+            className="px-3 py-2 rounded-xl border border-border text-textSecondary text-sm font-medium"
+          >
+            {t('cancel')}
+          </button>
+        </div>
       </BottomSheet>
     </div>
   );

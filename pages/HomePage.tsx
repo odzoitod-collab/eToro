@@ -7,6 +7,7 @@ import QuickActions from '../components/QuickActions';
 import PopularPairs from '../components/PopularPairs';
 import MarketTicker from '../components/MarketTicker';
 import AssetTable from '../components/AssetTable';
+import Skeleton from '../components/Skeleton';
 import { MOCK_ASSETS } from '../constants';
 import { Asset, PageView } from '../types';
 import { useLiveAssets } from '../utils/useLiveAssets';
@@ -51,7 +52,7 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
   }, []);
 
   return (
-    <div className="flex flex-col min-h-full animate-fade-in px-4 lg:px-6 lg:max-w-4xl mx-auto">
+    <div className="flex flex-col min-h-full animate-fade-in px-4 lg:px-6 lg:max-w-4xl mx-auto space-y-6">
       <HomeHeader 
         showBalanceTitle={isBalanceHidden} 
         balance={balance} 
@@ -60,8 +61,12 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
         onProfileClick={() => onNavigate('PROFILE')}
       />
       
-      <div ref={balanceRef} className="opacity-100 transition-opacity duration-300">
-        <BalanceDisplay balance={balance} onCurrencyClick={onCurrencyClick} />
+      <div ref={balanceRef} className="opacity-100 transition-opacity duration-300 min-h-[88px] flex items-center justify-center">
+        {Number.isNaN(balance) ? (
+          <Skeleton className="w-40 h-8" />
+        ) : (
+          <BalanceDisplay balance={balance} onCurrencyClick={onCurrencyClick} />
+        )}
       </div>
 
       <QuickActions onNavigate={onNavigate} />
@@ -81,7 +86,16 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
       </div>
       
       <div className="mt-4 flex-1 pb-28 lg:pb-12">
-        <AssetTable assets={liveAssets} onAssetClick={onNavigateToTrading} />
+        {liveAssets.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <Skeleton key={idx} className="w-full h-14 rounded-lg bg-card/60" />
+            ))}
+          </div>
+        ) : (
+          <AssetTable assets={liveAssets} onAssetClick={onNavigateToTrading} />
+        )}
       </div>
     </div>
   );

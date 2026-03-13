@@ -13,7 +13,7 @@ export interface PageHeaderProps {
 }
 
 const BACK_BUTTON_CLASS =
-  'touch-target p-2 -ml-1 rounded-xl text-textMuted hover:text-textPrimary hover:bg-card active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30';
+  'touch-target px-2 py-2 -ml-1 rounded-xl text-textMuted hover:text-textPrimary hover:bg-card active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30 min-h-[44px] min-w-[44px]';
 
 /**
  * Единая шапка вложенных экранов: одна кнопка «Назад» слева, заголовок по центру.
@@ -29,7 +29,11 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, onBack, right, className
 
   return (
     <header
-      className={`flex items-center gap-3 px-4 py-3 border-b border-border bg-background shrink-0 sticky top-0 z-20 lg:px-6 lg:py-4 ${className}`}
+      className={`flex items-center gap-3 px-4 py-3 border-b border-border bg-background shrink-0 sticky top-0 z-20 lg:px-5 lg:py-4 ${className}`}
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+        minHeight: '48px',
+      }}
     >
       {onBack ? (
         <button
@@ -46,7 +50,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, onBack, right, className
       {title != null && (
         <div className="flex-1 min-w-0">
           {typeof title === 'string' ? (
-            <span className="text-base font-semibold text-textPrimary truncate block lg:text-lg">
+            <span className="text-xl font-semibold text-white truncate block">
               {title}
             </span>
           ) : (

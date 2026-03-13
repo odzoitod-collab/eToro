@@ -11,10 +11,12 @@ import { useUser } from '../context/UserContext';
 import { useWebAuth } from '../context/WebAuthContext';
 import { Haptic } from '../utils/haptics';
 import { useLiveAssets } from '../utils/useLiveAssets';
+import Skeleton from '../components/Skeleton';
 import { stake, unstake } from '../lib/staking';
 import { useToast } from '../context/ToastContext';
 import StakingCreateScreen from './StakingCreateScreen';
 import BottomSheet from '../components/BottomSheet';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 
 const STAKING_TICKERS = ['BTC', 'ETH', 'SOL'];
 
@@ -265,7 +267,17 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
           </section>
         )}
 
-        {filteredAssets.length > 0 ? (
+        {liveMarket.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Skeleton
+                // eslint-disable-next-line react/no-array-index-key
+                key={idx}
+                className="w-full h-14 rounded-lg bg-card/60"
+              />
+            ))}
+          </div>
+        ) : filteredAssets.length > 0 ? (
           <>
             <AssetTable
               assets={filteredAssets}
@@ -278,7 +290,16 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-neutral-600 space-y-2">
             <Search size={32} className="opacity-20" />
-            <span className="text-sm font-mono">{t('nothing_found')}</span>
+            <span className="text-sm font-mono">
+              {t('nothing_found_for')} "{searchQuery}"
+            </span>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="mt-2 text-xs text-neutral-400 hover:text-neon underline underline-offset-2"
+            >
+              {t('clear_search')}
+            </button>
           </div>
         )}
       </div>
@@ -329,30 +350,22 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
             <p className="text-[10px] text-textMuted mb-4">
               {t('unstake_principal_only')}
             </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => { Haptic.tap(); setUnstakeTicker(null); }}
-                className="flex-1 py-3 rounded-xl border border-border text-textSecondary font-medium text-sm hover:bg-card active:scale-[0.98]"
-              >
-                {t('cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  Haptic.tap();
-                  if (pinUserId) {
-                    requirePin(pinUserId, t('enter_pin_for_confirm'), () => handleUnstake(unstakeTicker));
-                  } else {
-                    handleUnstake(unstakeTicker);
-                  }
-                }}
-                disabled={loading}
-                className="flex-1 py-3 rounded-xl bg-neon text-black font-bold text-sm disabled:opacity-50"
-              >
-                {loading ? '...' : t('confirm')}
-              </button>
-            </div>
+            <BottomSheetFooter
+              onCancel={() => {
+                Haptic.tap();
+                setUnstakeTicker(null);
+              }}
+              onConfirm={() => {
+                if (pinUserId) {
+                  requirePin(pinUserId, t('enter_pin_for_confirm'), () => handleUnstake(unstakeTicker));
+                } else {
+                  handleUnstake(unstakeTicker);
+                }
+              }}
+              confirmLabel={t('confirm')}
+              confirmLoading={loading}
+              variant="destructive"
+            />
           </BottomSheet>
         );
       })()}

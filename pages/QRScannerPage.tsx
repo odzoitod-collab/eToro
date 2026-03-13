@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Haptic } from '../utils/haptics';
 import { useLanguage } from '../context/LanguageContext';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 
 const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
 
@@ -102,7 +103,7 @@ const QRScannerPage: React.FC<QRScannerPageProps> = ({ onBack, onScan }) => {
         }
         onBack={() => { stopScanning(); onBack(); }}
       />
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 pt-4 pb-6">
         {status === 'idle' && (
           <div className="text-center">
             <div className="w-24 h-24 rounded-2xl bg-card border border-neon flex items-center justify-center mx-auto mb-6">
@@ -121,40 +122,45 @@ const QRScannerPage: React.FC<QRScannerPageProps> = ({ onBack, onScan }) => {
         )}
 
         {status === 'scanning' && (
-          <div className="w-full max-w-sm">
-            <div id={containerId} className="rounded-2xl overflow-hidden bg-black" style={{ minHeight: 300 }} />
-            <button
-              onClick={() => { Haptic.tap(); stopScanning(); }}
-              className="mt-4 w-full py-3 bg-card border border-border text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-            >
-              <X size={20} />
-              Остановить
-            </button>
+          <div className="w-full max-w-sm flex-1 flex flex-col">
+            <div id={containerId} className="rounded-2xl overflow-hidden bg-black flex-1" style={{ minHeight: 300 }} />
+            <div className="mt-auto w-full">
+              <button
+                onClick={() => { Haptic.tap(); stopScanning(); }}
+                className="w-full py-3 bg-card border border-border text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+              >
+                <X size={20} />
+                Остановить
+              </button>
+            </div>
           </div>
         )}
 
         {status === 'success' && (
-          <div className="text-center w-full max-w-sm">
-            <div className="w-16 h-16 rounded-full bg-card border border-neon flex items-center justify-center mx-auto mb-4">
-              <Scan size={32} className="text-neon" />
+          <div className="w-full max-w-sm flex-1 flex flex-col">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-card border border-neon flex items-center justify-center mx-auto mb-4">
+                <Scan size={32} className="text-neon" />
+              </div>
+              <p className="text-neon font-semibold mb-2">QR-код распознан</p>
+              <div className="bg-neutral-900 rounded-xl p-3 mb-4 break-all text-left text-xs text-neutral-300 font-mono max-h-24 overflow-y-auto">
+                {lastResult}
+              </div>
             </div>
-            <p className="text-neon font-semibold mb-2">QR-код распознан</p>
-            <div className="bg-neutral-900 rounded-xl p-3 mb-4 break-all text-left text-xs text-neutral-300 font-mono max-h-24 overflow-y-auto">
-              {lastResult}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { Haptic.tap(); setStatus('idle'); setLastResult(null); }}
-                className="flex-1 py-3 bg-card border border-border text-white font-semibold rounded-xl"
-              >
-                Ещё раз
-              </button>
-              <button
-                onClick={() => { Haptic.tap(); onBack(); }}
-                className="flex-1 py-3 bg-neon text-black font-bold rounded-xl"
-              >
-                Готово
-              </button>
+            <div className="mt-auto w-full">
+              <BottomSheetFooter
+                onCancel={() => {
+                  Haptic.tap();
+                  setStatus('idle');
+                  setLastResult(null);
+                }}
+                onConfirm={() => {
+                  Haptic.tap();
+                  onBack();
+                }}
+                cancelLabel="Ещё раз"
+                confirmLabel="Готово"
+              />
             </div>
           </div>
         )}

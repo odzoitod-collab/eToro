@@ -46,7 +46,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onSuccess }) => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@mail.com"
               autoComplete="email"
-              className="w-full py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none"
+              className="w-full min-h-[48px] py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none text-[16px]"
             />
           </div>
           <div>
@@ -57,16 +57,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onSuccess }) => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               autoComplete="current-password"
-              className="w-full py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none"
+              className="w-full min-h-[48px] py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none text-[16px]"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-neon text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-neon/90 disabled:opacity-60 active:scale-[0.99] transition-all"
+            className="w-full py-3.5 px-4 bg-neon text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-neon/90 disabled:opacity-60 disabled:pointer-events-none active:scale-[0.99] transition-all"
           >
-            <LogIn size={20} />
-            {loading ? 'Вход...' : 'Войти'}
+            {loading ? (
+              <>
+                <LogIn size={20} className="animate-spin" />
+                <span>Вход...</span>
+              </>
+            ) : (
+              <>
+                <LogIn size={20} />
+                <span>Войти</span>
+              </>
+            )}
           </button>
         </form>
       </div>

@@ -14,11 +14,18 @@ interface LayoutProps {
 const PAGES_WITHOUT_BOTTOM_NAV: PageView[] = ['KYC', 'CURRENCY', 'LANGUAGE'];
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hideNavigation = false }) => {
-  const { keyboardOpen } = useKeyboard();
+  const { keyboardOpen, keyboardOffset } = useKeyboard();
   const hideBottomNav = PAGES_WITHOUT_BOTTOM_NAV.includes(currentPage) || keyboardOpen || hideNavigation;
 
   return (
-    <div className="h-screen min-h-[100dvh] bg-background text-white flex flex-col lg:flex-row relative overflow-hidden">
+    <div
+      className="h-screen min-h-[100dvh] bg-background text-white flex flex-col lg:flex-row relative overflow-hidden"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
       {!hideBottomNav && <SidebarNav currentPage={currentPage} onNavigate={onNavigate} />}
 
       <main
@@ -26,6 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hide
           max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto
           ${hideBottomNav ? 'pb-2' : 'pb-20 lg:pb-8'}
         `}
+        style={keyboardOffset > 0 ? { paddingBottom: keyboardOffset + 16 } : undefined}
       >
         {children}
       </main>

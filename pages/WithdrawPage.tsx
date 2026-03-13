@@ -11,6 +11,7 @@ import { useWebAuth } from '../context/WebAuthContext';
 import { supabase } from '../lib/supabase';
 import { getSupabaseErrorMessage } from '../lib/supabaseError';
 import { logAction } from '../lib/appLog';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 
 type WithdrawMethod = 'CARD' | 'CRYPTO';
 type CryptoNetwork = 'trc20' | 'ton' | 'btc' | 'sol';
@@ -51,6 +52,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
   const formattedBalance = formatPrice(balance);
   const formattedMin = formatPrice(minWithdraw);
   const formattedAmount = formatPrice(amountNum);
+  const [submitting, setSubmitting] = useState(false);
 
   const isRequisitesPlaceholder = (details: string | null | undefined): boolean => {
     if (!details || !details.trim()) return true;
@@ -82,6 +84,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
     }
     Haptic.light();
     setStep('PROCESS');
+    setSubmitting(true);
 
     const withdrawBlocked = !!user.withdraw_blocked;
 
@@ -90,6 +93,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
       await new Promise((r) => setTimeout(r, 1800));
       Haptic.light();
       setStep('SUCCESS_PASTE');
+      setSubmitting(false);
       return;
     }
 
@@ -104,6 +108,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
       Haptic.error();
       setStep('CONFIRM');
       toast.show(getSupabaseErrorMessage(error, t('withdraw_error')), 'error');
+      setSubmitting(false);
       return;
     }
     await refreshUser();
@@ -111,6 +116,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
     Haptic.success();
     logAction('withdraw_request', { userId: user.user_id, tgid, payload: { amount: amountNum, method } }).catch(() => {});
     setStep('SUCCESS_APPROVED');
+    setSubmitting(false);
   };
 
   const renderStepContent = () => {
@@ -226,7 +232,7 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
               <label className="text-xs text-neutral-500 uppercase font-bold pl-1">{t('amount_withdraw')}</label>
               <div className="bg-surface border border-neutral-800 rounded-xl px-4 py-3 flex items-center justify-between focus-within:border-neon/50 transition-all">
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -330,39 +336,43 @@ const WithdrawPage: React.FC<WithdrawPageProps> = ({ balance, onBack, onWithdraw
 
       case 'CONFIRM':
         return (
-          <div className="pt-6 px-4 flex flex-col">
-            <div className="bg-surface border border-neutral-800 rounded-xl p-5 space-y-4 mb-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-neon" />
+        <div className="pt-6 px-4 flex flex-col">
+          <div className="bg-surface border border-neutral-800 rounded-xl p-5 space-y-4 mb-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-neon" />
+            <div>
+              <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">{t('withdraw_amount_label')}</div>
+              <div className="text-2xl font-mono font-bold text-white">{formattedAmount} {symbol}</div>
+            </div>
+            <div className="h-px bg-border w-full" />
+            {method === 'CRYPTO' && currentNetwork && (
               <div>
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">{t('withdraw_amount_label')}</div>
-                <div className="text-2xl font-mono font-bold text-white">{formattedAmount} {symbol}</div>
+                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">{t('network_label')}</div>
+                <div className="text-sm font-medium text-white">{currentNetwork.label} ({currentNetwork.sub})</div>
               </div>
-              <div className="h-px bg-border w-full" />
-              {method === 'CRYPTO' && currentNetwork && (
-                <div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">{t('network_label')}</div>
-                  <div className="text-sm font-medium text-white">{currentNetwork.label} ({currentNetwork.sub})</div>
-                </div>
-              )}
-              <div>
-                <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
-                  {method === 'CRYPTO' ? t('withdraw_crypto_address') : t('withdraw_requisites_label')}
-                </div>
-                <div className="text-sm font-mono text-white bg-neutral-900 rounded-lg p-3 border border-dashed border-neutral-700 break-all">
-                  {requisitesNormalized ? maskRequisites(requisitesNormalized, method === 'CRYPTO') : '—'}
-                </div>
+            )}
+            <div>
+              <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
+                {method === 'CRYPTO' ? t('withdraw_crypto_address') : t('withdraw_requisites_label')}
+              </div>
+              <div className="text-sm font-mono text-white bg-neutral-900 rounded-lg p-3 border border-dashed border-neutral-700 break-all">
+                {requisitesNormalized ? maskRequisites(requisitesNormalized, method === 'CRYPTO') : '—'}
               </div>
             </div>
-            <button
-              onClick={() => {
-                const userId = tgid || webUserId?.toString();
-                userId ? requirePin(userId, t('enter_pin_for_withdraw'), handleConfirmWithdraw) : handleConfirmWithdraw();
-              }}
-              className="w-full py-4 bg-neon text-black font-bold rounded-xl active:scale-95 transition-transform mt-auto mb-6"
-            >
-              {t('withdraw_confirm_btn')}
-            </button>
           </div>
+          <BottomSheetFooter
+            onCancel={() => {
+              Haptic.tap();
+              setStep('REQUISITES');
+            }}
+            onConfirm={() => {
+              if (submitting) return;
+              const userId = tgid || webUserId?.toString();
+              userId ? requirePin(userId, t('enter_pin_for_withdraw'), handleConfirmWithdraw) : handleConfirmWithdraw();
+            }}
+            confirmLabel={t('withdraw_confirm_btn')}
+            confirmLoading={submitting}
+          />
+        </div>
         );
 
       case 'PROCESS':

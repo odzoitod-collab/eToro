@@ -8,10 +8,18 @@ export interface BottomSheetProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** Тип нижнего шита:
+   * - 'partial' — быстрые действия, небольшие подтверждения (30–60% высоты)
+   * - 'expandable' — панели с большим количеством контента (40–90% высоты)
+   * По умолчанию partial.
+   */
+  variant?: 'partial' | 'expandable';
   /** Закрывать по клику на затемнённый фон. По умолчанию true — удобно для подтверждений и форм. */
   closeOnBackdrop?: boolean;
   /** Дополнительный класс для панели контента */
   contentClassName?: string;
+  /** Показывать иконку закрытия в правом верхнем углу (для expandable‑листов). По умолчанию false. */
+  showCloseButton?: boolean;
 }
 
 /**
@@ -23,8 +31,10 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose,
   title,
   children,
+  variant = 'partial',
   closeOnBackdrop = true,
   contentClassName = '',
+  showCloseButton = false,
 }) => {
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
@@ -46,7 +56,7 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
       className="fixed inset-0 flex items-end justify-center bg-black/70 backdrop-blur-sm animate-fade-in transition-opacity duration-300"
       style={{
         zIndex: Z_INDEX.modal,
-        paddingBottom: 0,
+        paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         paddingTop: 'env(safe-area-inset-top)',
@@ -57,23 +67,31 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
       aria-labelledby="bottom-sheet-title"
     >
       <div
-        className={`w-full max-w-md bg-card border-t border-border rounded-t-2xl shadow-2xl animate-sheet-up pb-safe overflow-hidden ${contentClassName}`}
+        className={`w-full max-w-md bg-card border-t border-border rounded-t-2xl shadow-2xl animate-sheet-up pb-safe overflow-hidden ${
+          variant === 'partial' ? 'max-h-[60vh] min-h-[30vh]' : 'max-h-[90vh] min-h-[40vh]'
+        } ${contentClassName}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center px-4 pt-4 pb-3 border-b border-border/80 bg-surface/50">
-          <h3 id="bottom-sheet-title" className="text-lg font-bold text-textPrimary">
+        {/* Drag handle для partial/expandable типов */}
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="h-1 w-10 rounded-full bg-border" aria-hidden />
+        </div>
+        <div className="flex items-center justify-between px-4 pb-3 border-b border-border/80 bg-surface/50 min-h-[48px]">
+          <h3 id="bottom-sheet-title" className="text-lg font-bold text-textPrimary truncate">
             {title}
           </h3>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="touch-target p-2 -mr-2 rounded-xl text-textMuted hover:text-textPrimary hover:bg-card active:scale-95 transition-all flex items-center justify-center"
-            aria-label="Закрыть"
-          >
-            <X size={20} strokeWidth={2} />
-          </button>
+          {variant === 'expandable' && showCloseButton && (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="touch-target px-2 py-2 -mr-2 rounded-xl text-textMuted hover:text-textPrimary hover:bg-card active:scale-95 transition-all flex items-center justify-center min-h-[44px] min-w-[44px]"
+              aria-label="Закрыть"
+            >
+              <X size={20} strokeWidth={2} />
+            </button>
+          )}
         </div>
-        <div className="p-4 overflow-y-auto max-h-[80dvh] scroll-app">
+        <div className="p-4 overflow-y-auto max-h-[80dvh] scroll-app space-y-6">
           {children}
         </div>
       </div>

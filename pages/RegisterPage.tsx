@@ -147,9 +147,22 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ refId, onBack, onSuccess })
                   className="w-full py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none"
                 />
               </div>
-              <button type="submit" disabled={loading} className="w-full py-3.5 px-4 bg-neon text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-neon/90 disabled:opacity-60 active:scale-[0.99] transition-all">
-                <UserPlus size={20} />
-                {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-neon text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-neon/90 disabled:opacity-60 disabled:pointer-events-none active:scale-[0.99] transition-all"
+              >
+                {loading ? (
+                  <>
+                    <UserPlus size={20} className="animate-spin" />
+                    <span>Регистрация...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={20} />
+                    <span>Зарегистрироваться</span>
+                  </>
+                )}
               </button>
             </>
           )}

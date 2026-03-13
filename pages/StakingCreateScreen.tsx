@@ -5,6 +5,7 @@ import { Z_INDEX } from '../constants/zIndex';
 import { useLanguage } from '../context/LanguageContext';
 import { Haptic } from '../utils/haptics';
 import { stake } from '../lib/staking';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 
 interface StakingCreateScreenProps {
   ticker: string;
@@ -152,23 +153,15 @@ const StakingCreateScreen: React.FC<StakingCreateScreenProps> = ({
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => { Haptic.tap(); setStep('input'); }}
-                className="flex-1 py-3.5 rounded-xl border border-white/20 text-neutral-300 font-medium text-sm active:scale-[0.98]"
-              >
-                {t('cancel')}
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleCreateStaking}
-                className="flex-1 py-3.5 rounded-xl bg-neon text-black font-bold text-sm active:scale-[0.98] disabled:opacity-50"
-              >
-                {loading ? '...' : t('create_staking_btn')}
-              </button>
-            </div>
+            <BottomSheetFooter
+              onCancel={() => {
+                Haptic.tap();
+                setStep('input');
+              }}
+              onConfirm={handleCreateStaking}
+              confirmLabel={t('create_staking_btn')}
+              confirmLoading={loading}
+            />
           </>
         )}
         </div>

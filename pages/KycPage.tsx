@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { sendVerificationToTelegram, canSendDepositToTelegram } from '../lib/telegramNotify';
 import { logAction } from '../lib/appLog';
+import Modal from '../components/Modal';
 
 type KycStep = 'DOC_TYPE' | 'NAME' | 'DOC_PHOTO' | 'SELFIE' | 'SUCCESS';
 
@@ -38,6 +39,7 @@ const KycPage: React.FC<KycPageProps> = ({ onBack }) => {
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -136,7 +138,24 @@ const KycPage: React.FC<KycPageProps> = ({ onBack }) => {
 
   return (
     <div className="flex flex-col h-full bg-background animate-fade-in">
-      <PageHeader title={t('verification')} onBack={onBack} />
+      <PageHeader
+        title={t('verification')}
+        onBack={onBack}
+        right={
+          step !== 'SUCCESS' ? (
+            <button
+              type="button"
+              onClick={() => {
+                Haptic.light();
+                setShowExitConfirm(true);
+              }}
+              className="text-xs text-textMuted hover:text-textPrimary"
+            >
+              {t('cancel')}
+            </button>
+          ) : null
+        }
+      />
       <div className="flex-1 overflow-y-auto p-4">
         {showProgress && (
           <div className="max-w-md mx-auto mb-6">
@@ -359,6 +378,37 @@ const KycPage: React.FC<KycPageProps> = ({ onBack }) => {
         )}
         </div>
       </div>
+
+      <Modal
+        open={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        title={t('kyc_exit_title') ?? 'Выйти из верификации?'}
+        closeOnBackdrop
+      >
+        <p className="text-sm text-textSecondary mb-4">
+          {t('kyc_exit_text') ?? 'Прогресс может быть утерян. Вы действительно хотите выйти из процесса верификации?'}
+        </p>
+        <div className="flex gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => setShowExitConfirm(false)}
+            className="flex-1 py-2.5 rounded-xl border border-border text-textSecondary text-sm font-medium"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              Haptic.tap();
+              setShowExitConfirm(false);
+              onBack();
+            }}
+            className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold"
+          >
+            {t('exit') ?? 'Выйти'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

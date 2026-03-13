@@ -19,12 +19,15 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ showBalanceTitle, balance, user
   const formattedBalance = formatPrice(balance, { fractionDigits: 0 });
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background border-b border-border">
-      <div className="w-full px-3 lg:px-4 py-1.5 flex items-center gap-2.5">
+    <header
+      className="sticky top-0 z-50 w-full bg-background border-b border-border"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
+      <div className="w-full px-4 lg:px-5 py-2 flex items-center gap-3">
         <button
           type="button"
           onClick={() => { Haptic.tap(); onProfileClick?.(); }}
-          className="touch-target flex items-center gap-2 min-w-0 px-1 py-0.5 rounded-full hover:bg-card active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30"
+          className="touch-target flex items-center gap-2 min-w-0 px-2 py-1 rounded-full hover:bg-card active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30 min-h-[44px]"
         >
           {user?.photo_url ? (
             <img
@@ -60,7 +63,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ showBalanceTitle, balance, user
 
         <button
           onClick={() => { Haptic.tap(); onSearch?.(); }}
-          className="touch-target h-8 w-8 rounded-full flex items-center justify-center hover:bg-card active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30 flex-shrink-0"
+          className="touch-target h-11 w-11 rounded-full flex items-center justify-center hover:bg-card active:scale-[0.97] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30 flex-shrink-0"
         >
           <Search size={18} className="text-textSecondary" />
         </button>

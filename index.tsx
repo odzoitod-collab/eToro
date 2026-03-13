@@ -34,14 +34,15 @@ const TG_APP_BG = '#131722';
 if (tg) {
   tg.ready();
   tg.expand();
-  try {
-    if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor(TG_APP_BG);
-    if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor(TG_APP_BG);
-    if (typeof tg.setBottomBarColor === 'function') tg.setBottomBarColor(TG_APP_BG);
-  } catch (_) {}
   const ver = tg.version;
   const tgVersion = parseFloat(typeof ver === 'string' ? ver : '0');
+  // setHeaderColor/setBackgroundColor/setBottomBarColor не поддерживаются в Telegram WebApp 6.0 — вызываем только в более новых версиях
   if (tgVersion > 6.0) {
+    try {
+      if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor(TG_APP_BG);
+      if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor(TG_APP_BG);
+      if (typeof tg.setBottomBarColor === 'function') tg.setBottomBarColor(TG_APP_BG);
+    } catch (_) {}
     window.Telegram?.WebApp?.enableClosingConfirmation?.();
     window.Telegram?.WebApp?.disableVerticalSwipes?.();
   }

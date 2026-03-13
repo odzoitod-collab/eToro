@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { X } from 'lucide-react';
 import { Z_INDEX } from '../constants/zIndex';
 import { Haptic } from '../utils/haptics';
 import { hasStoredPin, checkPin as checkPinStorage } from '../utils/pinStorage';
@@ -67,6 +66,7 @@ export function PinProvider({ children }: { children: React.ReactNode }) {
             paddingLeft: 'env(safe-area-inset-left)',
             paddingRight: 'env(safe-area-inset-right)',
             paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -82,18 +82,10 @@ export function PinProvider({ children }: { children: React.ReactNode }) {
             className="w-full max-w-md bg-card border-t border-border rounded-t-2xl shadow-2xl animate-sheet-up pb-safe overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center px-4 pt-4 pb-3 border-b border-border/80 bg-surface/50">
+            <div className="flex items-center px-4 pt-4 pb-3 border-b border-border/80 bg-surface/50">
               <h3 id="pin-sheet-title" className="text-lg font-bold text-textPrimary">
                 {modal.title}
               </h3>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="touch-target p-2 -mr-2 rounded-xl text-textMuted hover:text-textPrimary hover:bg-card active:scale-95 transition-all flex items-center justify-center"
-                aria-label="Закрыть"
-              >
-                <X size={20} strokeWidth={2} />
-              </button>
             </div>
             <div className="p-4 overflow-y-auto max-h-[80dvh] scroll-app">
               <PinKeypad
@@ -105,6 +97,15 @@ export function PinProvider({ children }: { children: React.ReactNode }) {
               {error && (
                 <p className="text-center text-red-400 text-sm mt-4 font-medium">Неверный пароль</p>
               )}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-3 py-2 rounded-xl border border-border text-textSecondary text-sm font-medium"
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           </div>
         </div>

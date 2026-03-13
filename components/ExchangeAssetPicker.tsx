@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Haptic } from '../utils/haptics';
@@ -92,18 +92,24 @@ const ExchangeAssetPicker: React.FC<ExchangeAssetPickerProps> = ({
   return (
     <div
       className="fixed inset-0 bg-background flex flex-col animate-fade-in"
-      style={{ zIndex: Z_INDEX.picker }}
+      style={{
+        zIndex: Z_INDEX.picker,
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
-      <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <h2 className="text-base font-semibold text-textPrimary">{title}</h2>
+      <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-border bg-card min-h-[48px]">
         <button
           type="button"
           onClick={handleClose}
-          className="touch-target p-2 -mr-2 rounded-xl text-textMuted hover:text-textPrimary hover:bg-surface active:scale-95 transition-all flex items-center justify-center"
+          className="touch-target px-2 py-2 -ml-2 rounded-xl text-textMuted hover:text-textPrimary hover:bg-surface active:scale-95 transition-all flex items-center justify-center min-h-[44px] min-w-[44px]"
           aria-label={t('close')}
         >
-          <X size={20} strokeWidth={2} />
+          <ArrowLeft size={20} strokeWidth={2} />
         </button>
+        <h2 className="text-base font-semibold text-textPrimary truncate">{title}</h2>
       </header>
 
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
@@ -172,6 +178,15 @@ const ExchangeAssetPicker: React.FC<ExchangeAssetPickerProps> = ({
           {filteredAssets.length === 0 && (
             <p className="text-sm text-textMuted py-8 text-center font-mono">{t('nothing_found')}</p>
           )}
+        </div>
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-3 py-2 rounded-xl border border-border text-textSecondary text-sm font-medium"
+          >
+            {t('cancel')}
+          </button>
         </div>
       </div>
     </div>

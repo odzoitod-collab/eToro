@@ -42,6 +42,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onNext }) => {
         style={{ opacity: isLast ? 0.6 : 1 }}
       />
 
+      {/* Intentional exception: no Back/Cancel here — onboarding is a short, linear flow */}
       <div className="relative flex flex-col items-center max-w-sm w-full min-h-[420px]">
         {/* Контент шага с анимацией появления */}
         <div key={key} className="flex flex-col items-center flex-1 animate-slide-in-right">

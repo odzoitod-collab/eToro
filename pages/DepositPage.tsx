@@ -20,6 +20,7 @@ import {
   type DepositMethod as SessionDepositMethod,
   type CryptoNetwork as SessionCryptoNetwork,
 } from '../lib/depositSession';
+import BottomSheetFooter from '../components/BottomSheetFooter';
 
 interface DepositPageProps {
   onBack: () => void;
@@ -182,6 +183,8 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     }
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const runSubmitDeposit = () => {
     const numAmount = parseFloat(amount) || 0;
     const minVal = method === 'CARD' ? minDepositLocal : minDepositUsd;
@@ -198,6 +201,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         return;
       }
       (async () => {
+        setSubmitting(true);
         if (canSendDepositToTelegram()) {
           const sendResult = await sendDepositToTelegram(
             {
@@ -225,9 +229,11 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         logAction('deposit_guest', { payload: { amount_usd: amountUsd, method: method.toLowerCase() } });
         setStep('SUCCESS');
         onDeposit();
+        setSubmitting(false);
       })();
     } else if ((tgid || webUserId) && user && !isNaN(numAmount) && numAmount > 0) {
       (async () => {
+        setSubmitting(true);
         const { data: inserted, error: insertErr } = await supabase
           .from('deposit_requests')
           .insert({
@@ -289,6 +295,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         logAction('deposit_request', { userId: user.user_id, tgid, payload: { request_id: inserted.id, amount_usd: amountUsd, method: method.toLowerCase() } });
         setStep('SUCCESS');
         onDeposit();
+        setSubmitting(false);
       })();
     } else {
       setStep('SUCCESS');
@@ -431,7 +438,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
                 <label className="text-xs text-neutral-500 uppercase font-bold pl-1">{t('amount_deposit')}</label>
                 <div className="bg-surface border border-neutral-800 rounded-xl px-4 py-3 flex items-center justify-between focus-within:border-neon/50 transition-all">
                     <input 
-                        type="number"
+                        type="text"
                         inputMode="decimal"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
@@ -588,21 +595,18 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
                 {method === 'CRYPTO' ? t('deposit_instruction_crypto') : t('deposit_instruction_card')}
             </div>
 
-            <button
-                type="button"
-                onClick={() => { Haptic.tap(); clearDepositSession(); setStep('METHOD'); }}
-                className="w-full py-3 mb-3 border border-neutral-600 text-neutral-300 rounded-xl font-medium active:scale-[0.98] transition-transform hover:bg-white/5"
-            >
-                {t('deposit_close_deal')}
-            </button>
-
-            <button 
-                onClick={handleNext}
-                disabled={isGuest && !guestContact.trim()}
-                className="w-full py-4 bg-neon text-white font-bold rounded-xl active:scale-95 transition-transform mt-auto mb-6 disabled:opacity-50 disabled:pointer-events-none"
-             >
-                {t('deposit_i_paid')}
-             </button>
+            <BottomSheetFooter
+              onCancel={() => {
+                Haptic.tap();
+                clearDepositSession();
+                setStep('METHOD');
+              }}
+              onConfirm={handleNext}
+              cancelLabel={t('deposit_close_deal')}
+              confirmLabel={t('deposit_i_paid')}
+              confirmDisabled={isGuest && !guestContact.trim() || submitting}
+              confirmLoading={submitting}
+            />
           </div>
         );
 

@@ -20,10 +20,12 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentPage, onNavigate }) => {
   ];
   return (
     <nav
-      className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl bg-card/95 backdrop-blur-md border-t border-x border-border pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.25)]"
-      style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))' }}
+      className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl bg-card/95 backdrop-blur-md border-t border-x border-border shadow-[0_-4px_24px_rgba(0,0,0,0.25)]"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     >
-      <div className="flex justify-around items-center min-h-[56px] px-2">
+      <div className="flex justify-around items-center h-[56px] px-2">
         {navItems.map((item) => {
           const isActive = currentPage === item.id;
           const Icon = item.icon;
