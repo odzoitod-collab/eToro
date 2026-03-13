@@ -370,12 +370,14 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         (payload) => {
           const rec = payload.new as Record<string, unknown>;
           if (rec.status === 'awaiting_payment' && rec.payment_requisites) {
+            const timeSeconds = Number(rec.payment_time_seconds) || 900;
+            const deadline = Date.now() + timeSeconds * 1000;
             setP2pPaymentDetails({
               requisites: String(rec.payment_requisites),
               comment: String(rec.payment_comment || ''),
-              timeSeconds: Number(rec.payment_time_seconds) || 900,
+              timeSeconds,
             });
-            setP2pPayTimeLeft(Number(rec.payment_time_seconds) || 900);
+            setP2pPayTimeLeft(Math.max(0, Math.floor((deadline - Date.now()) / 1000)));
             setStep('P2P_PAYMENT');
             Haptic.success?.();
             toast.show('✅ Продавец подтвердил сделку!', 'success');
@@ -389,6 +391,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
                   ...stored,
                   dealId: rec.id,
                   status: rec.status,
+                  paymentDeadline: deadline,
                 }),
               );
             } catch (_) {}
@@ -420,6 +423,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
           amount?: number;
           currency?: string;
           sellerName?: string;
+          paymentDeadline?: number;
         };
         if (!stored.dealId) return;
 
@@ -466,12 +470,27 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         // Если реквизиты уже есть — сразу на шаг оплаты
         if (status === 'awaiting_payment' && (row as any).payment_requisites) {
           const timeSeconds = Number((row as any).payment_time_seconds) || 900;
+          const now = Date.now();
+          let deadline = stored.paymentDeadline;
+          if (!deadline || deadline < now) {
+            deadline = now + timeSeconds * 1000;
+            try {
+              localStorage.setItem(
+                P2P_ACTIVE_STORAGE_KEY,
+                JSON.stringify({
+                  ...stored,
+                  paymentDeadline: deadline,
+                }),
+              );
+            } catch (_) {}
+          }
+          const remaining = Math.max(0, Math.floor((deadline - now) / 1000));
           setP2pPaymentDetails({
             requisites: String((row as any).payment_requisites),
             comment: String((row as any).payment_comment || ''),
             timeSeconds,
           });
-          setP2pPayTimeLeft(timeSeconds);
+          setP2pPayTimeLeft(remaining);
           setStep('P2P_PAYMENT');
         } else {
           setP2pWaitTimeLeft(600);

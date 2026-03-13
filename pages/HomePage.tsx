@@ -11,6 +11,8 @@ import Skeleton from '../components/Skeleton';
 import { MOCK_ASSETS } from '../constants';
 import { Asset, PageView } from '../types';
 import { useLiveAssets } from '../utils/useLiveAssets';
+import { Clock, ArrowRight } from 'lucide-react';
+import { Haptic } from '../utils/haptics';
 
 interface HomePageProps {
     balance: number;
@@ -27,6 +29,13 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const balanceRef = useRef<HTMLDivElement>(null);
   const liveAssets = useLiveAssets(MOCK_ASSETS);
+  const [p2pBanner, setP2pBanner] = useState<{
+    amount: number;
+    currency: string;
+    bank: string;
+    status: 'waiting' | 'payment';
+    timeLeft?: number;
+  } | null>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -51,6 +60,69 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
     };
   }, []);
 
+  // П2П баннер «открытая сделка» + таймер
+  useEffect(() => {
+    const STORAGE_KEY = 'etoro_active_p2p_deal';
+
+    const readFromStorage = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          setP2pBanner(null);
+          return;
+        }
+        const stored = JSON.parse(raw) as {
+          amount?: number;
+          currency?: string;
+          bank?: string;
+          status?: string;
+          paymentDeadline?: number;
+        };
+        const amount = Number(stored.amount || 0);
+        const currency = stored.currency || 'RUB';
+        const bank = stored.bank || 'Банк';
+        if (!amount) {
+          setP2pBanner(null);
+          return;
+        }
+        if (stored.status === 'awaiting_payment' && stored.paymentDeadline) {
+          const now = Date.now();
+          const left = Math.max(0, Math.floor((stored.paymentDeadline - now) / 1000));
+          setP2pBanner({
+            amount,
+            currency,
+            bank,
+            status: 'payment',
+            timeLeft: left,
+          });
+        } else {
+          setP2pBanner({
+            amount,
+            currency,
+            bank,
+            status: 'waiting',
+          });
+        }
+      } catch {
+        setP2pBanner(null);
+      }
+    };
+
+    readFromStorage();
+    const id = window.setInterval(() => {
+      readFromStorage();
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const formatTime = (seconds: number | undefined) => {
+    if (seconds == null) return '--:--';
+    const s = Math.max(0, seconds);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex flex-col min-h-full animate-fade-in px-4 lg:px-6 lg:max-w-4xl mx-auto space-y-6">
       <HomeHeader 
@@ -68,6 +140,40 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
           <BalanceDisplay balance={balance} onCurrencyClick={onCurrencyClick} />
         )}
       </div>
+
+      {p2pBanner && (
+        <button
+          type="button"
+          onClick={() => {
+            Haptic.tap();
+            onNavigate('DEPOSIT');
+          }}
+          className="w-full rounded-2xl bg-neon/8 border border-neon/40 px-3.5 py-2 flex items-center justify-between gap-3 shadow-[0_0_18px_rgba(0,255,170,0.25)] active:scale-[0.99] transition-transform"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-2 w-2 rounded-full bg-neon animate-pulse shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] text-neon font-semibold uppercase tracking-wide">
+                Открытая П2П-сделка
+              </span>
+              <span className="text-[11px] text-neutral-300 truncate">
+                {p2pBanner.amount.toLocaleString('ru-RU')} {p2pBanner.currency} · {p2pBanner.bank}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {p2pBanner.status === 'payment' ? (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-neutral-700 text-[11px] text-neutral-200 font-mono">
+                <Clock size={11} className="text-neon" />
+                {formatTime(p2pBanner.timeLeft)}
+              </span>
+            ) : (
+              <span className="text-[11px] text-neutral-400">Ожидание продавца</span>
+            )}
+            <ArrowRight size={14} className="text-neon" />
+          </div>
+        </button>
+      )}
 
       <QuickActions onNavigate={onNavigate} />
 
