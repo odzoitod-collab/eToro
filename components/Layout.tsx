@@ -3,6 +3,7 @@ import BottomNav from './BottomNav';
 import SidebarNav from './SidebarNav';
 import { PageView } from '../types';
 import { useKeyboard } from '../context/KeyboardContext';
+import { Haptic } from '../utils/haptics';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +17,9 @@ const PAGES_WITHOUT_BOTTOM_NAV: PageView[] = ['KYC', 'CURRENCY', 'LANGUAGE'];
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hideNavigation = false }) => {
   const { keyboardOpen, keyboardOffset } = useKeyboard();
   const hideBottomNav = PAGES_WITHOUT_BOTTOM_NAV.includes(currentPage) || keyboardOpen || hideNavigation;
+  const hasActiveP2P =
+    typeof window !== 'undefined' &&
+    !!window.localStorage.getItem('etoro_active_p2p_deal');
 
   return (
     <div
@@ -44,6 +48,18 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hide
             keyboardOpen ? 'translate-y-full pointer-events-none' : 'translate-y-0'
           }`}
         >
+          {hasActiveP2P && currentPage !== 'DEPOSIT' && (
+            <button
+              onClick={() => {
+                Haptic.tap();
+                onNavigate('DEPOSIT');
+              }}
+              className="mx-3 mb-2 mt-1 w-auto rounded-2xl bg-neon/10 border border-neon/40 text-neon text-xs font-semibold px-3 py-1.5 flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(0,255,170,0.2)]"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-neon animate-pulse" />
+              Открытая П2П-сделка
+            </button>
+          )}
           <BottomNav currentPage={currentPage} onNavigate={onNavigate} />
         </div>
       )}

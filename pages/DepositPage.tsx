@@ -124,6 +124,8 @@ const AVATAR_COLORS = [
 // УТИЛИТЫ
 // ==========================================
 
+const P2P_ACTIVE_STORAGE_KEY = 'etoro_active_p2p_deal';
+
 function seededRandom(seed: number, offset = 0): number {
   const x = Math.sin(seed * 9301 + offset * 49297 + 233) * 10000;
   return x - Math.floor(x);
@@ -377,6 +379,19 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
             setStep('P2P_PAYMENT');
             Haptic.success?.();
             toast.show('✅ Продавец подтвердил сделку!', 'success');
+            // Обновляем локальное хранилище активной П2П-сделки
+            try {
+              const storedRaw = localStorage.getItem(P2P_ACTIVE_STORAGE_KEY);
+              const stored = storedRaw ? JSON.parse(storedRaw) as any : {};
+              localStorage.setItem(
+                P2P_ACTIVE_STORAGE_KEY,
+                JSON.stringify({
+                  ...stored,
+                  dealId: rec.id,
+                  status: rec.status,
+                }),
+              );
+            } catch (_) {}
           }
         }
       )
@@ -390,6 +405,88 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   // ==========================================
   // П2П ХЕНДЛЕРЫ
   // ==========================================
+
+  // Восстановление активной П2П-сделки при заходе на страницу
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = localStorage.getItem(P2P_ACTIVE_STORAGE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw) as {
+          dealId: string;
+          status?: string;
+          country?: string;
+          bank?: string;
+          amount?: number;
+          currency?: string;
+          sellerName?: string;
+        };
+        if (!stored.dealId) return;
+
+        const { data: row, error } = await supabase
+          .from('p2p_deals')
+          .select('*')
+          .eq('id', stored.dealId)
+          .single();
+        if (error || !row) {
+          localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+          return;
+        }
+
+        const status = (row as any).status as string;
+        if (status === 'paid' || status === 'completed' || status === 'cancelled') {
+          localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+          return;
+        }
+
+        const amount = Number((row as any).amount || stored.amount || 0);
+        const currency = (row as any).currency || stored.currency || 'RUB';
+        const bank = (row as any).bank || stored.bank || '';
+        const sellerName = (row as any).fake_seller_name || stored.sellerName || 'P2P Trader';
+        const colorIdx = Math.floor(seededRandom(Date.now(), 1) * AVATAR_COLORS.length);
+
+        const restoredDeal: FakeP2PDeal = {
+          id: stored.dealId,
+          sellerName,
+          sellerDeals: 3000,
+          sellerRating: 4.95,
+          sellerCompletion: 98.5,
+          bank,
+          amount,
+          minLimit: Math.max(1000, Math.round(amount * 0.3 / 100) * 100),
+          maxLimit: Math.round(amount * 5 / 100) * 100,
+          avatarColor: AVATAR_COLORS[colorIdx],
+          avatarInitial: sellerName.charAt(0).toUpperCase(),
+        };
+
+        setActiveDealId(stored.dealId);
+        setActiveDeal(restoredDeal);
+        setP2pCountry((prev) => prev || p2pCountry || null);
+
+        // Если реквизиты уже есть — сразу на шаг оплаты
+        if (status === 'awaiting_payment' && (row as any).payment_requisites) {
+          const timeSeconds = Number((row as any).payment_time_seconds) || 900;
+          setP2pPaymentDetails({
+            requisites: String((row as any).payment_requisites),
+            comment: String((row as any).payment_comment || ''),
+            timeSeconds,
+          });
+          setP2pPayTimeLeft(timeSeconds);
+          setStep('P2P_PAYMENT');
+        } else {
+          setP2pWaitTimeLeft(600);
+          setStep('P2P_WAITING');
+        }
+      } catch (_) {
+        try {
+          localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenDeal = async (deal: FakeP2PDeal) => {
     Haptic.tap();
@@ -472,6 +569,22 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
       },
     });
 
+    // Сохраняем активную П2П-сделку в localStorage, чтобы восстановить после перезахода
+    try {
+      localStorage.setItem(
+        P2P_ACTIVE_STORAGE_KEY,
+        JSON.stringify({
+          dealId,
+          status: 'pending_confirm',
+          country: p2pCountry?.country_name || '',
+          bank: deal.bank,
+          amount: deal.amount,
+          currency: p2pCountry?.currency || 'RUB',
+          sellerName: deal.sellerName,
+        }),
+      );
+    } catch (_) {}
+
     setSelectedDeal(null);
     setP2pWaitTimeLeft(600);
     setStep('P2P_WAITING');
@@ -514,6 +627,10 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         deal_id: activeDealId,
       },
     });
+    // Очищаем активную П2П-сделку
+    try {
+      localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+    } catch (_) {}
     setSubmitting(false);
     setStep('SUCCESS');
     onDeposit();
@@ -1081,7 +1198,14 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
           Продавец не ответил. Попробуйте другую сделку.
           <button
             className="mt-3 w-full py-3 rounded-xl bg-neon text-black font-bold text-sm"
-            onClick={() => { setActiveDealId(null); setActiveDeal(null); setStep('P2P_DEALS'); }}
+            onClick={() => {
+              setActiveDealId(null);
+              setActiveDeal(null);
+              setStep('P2P_DEALS');
+              try {
+                localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+              } catch (_) {}
+            }}
           >
             Выбрать другую сделку
           </button>
@@ -1096,6 +1220,9 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
             setActiveDealId(null);
             setActiveDeal(null);
             setStep('P2P_DEALS');
+            try {
+              localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+            } catch (_) {}
           }}
         >
           Отменить и выбрать другую сделку
@@ -1179,6 +1306,9 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
               setActiveDeal(null);
               setP2pPaymentDetails(null);
               setStep('P2P_DEALS');
+              try {
+                localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+              } catch (_) {}
             }}
             className="flex-1 py-4 rounded-2xl border border-neutral-700 text-neutral-400 font-medium text-sm active:scale-95 transition-transform"
           >
