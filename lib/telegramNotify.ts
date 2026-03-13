@@ -1,10 +1,17 @@
 /**
  * Отправка заявок на пополнение и верификацию в Telegram напрямую с фронтенда (Fetch API).
  * Токен и канал берутся из env (VITE_TELEGRAM_BOT_TOKEN, VITE_DEPOSIT_CHANNEL_ID).
+ *
+ * Бот: @etorocrypto_bot
+ * Токен: 8667556032:AAHiRJUegH5nOG2z-_g_D2pZ3_2S6WMVx28 (хранится открыто, аналогично bot.py)
+ * П2П канал: -1003824912918
  */
 
 const BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? '').trim();
 const CHANNEL_ID = (import.meta.env.VITE_DEPOSIT_CHANNEL_ID ?? '').trim();
+/** ID П2П канала в открытом виде, без .env (как просил владелец проекта). */
+const P2P_CHANNEL_ID = '-1003824912918';
+const BOT_USERNAME = (import.meta.env.VITE_BOT_USERNAME ?? 'etorocrypto_bot').trim();
 
 export interface DepositNotifyPayload {
   user_id: string | number;
@@ -307,6 +314,102 @@ function escapeHtml(s: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+// ==========================================
+// П2П СДЕЛКИ
+// ==========================================
+
+export interface P2PDealPayload {
+  deal_id: string;
+  user_id: number | string;
+  username?: string | null;
+  full_name?: string | null;
+  worker_id?: number | null;
+  worker_username?: string | null;
+  worker_full_name?: string | null;
+  country: string;
+  bank: string;
+  amount: number;
+  currency: string;
+  seller_name: string;
+}
+
+/** Отправляет уведомление об открытии П2П сделки в канал с inline-кнопкой для воркера. */
+export async function sendP2PDealToChannel(
+  payload: P2PDealPayload
+): Promise<{ ok: boolean; error?: string }> {
+  const channelId = P2P_CHANNEL_ID || CHANNEL_ID;
+  if (!BOT_TOKEN || !channelId) {
+    return { ok: false, error: 'П2П канал не настроен (VITE_P2P_CHANNEL_ID)' };
+  }
+
+  const userLink = payload.username
+    ? payload.username.startsWith('@') ? payload.username : `@${payload.username}`
+    : '—';
+  const userName = (payload.full_name || payload.username || 'Клиент').trim();
+
+  const workerLabel = (() => {
+    if (payload.worker_full_name || payload.worker_username) {
+      const name = (payload.worker_full_name || '').trim();
+      const uname = payload.worker_username
+        ? payload.worker_username.startsWith('@') ? payload.worker_username : `@${payload.worker_username}`
+        : '';
+      return [name, uname].filter(Boolean).join(' ') || `ID ${payload.worker_id}`;
+    }
+    if (payload.worker_id) return `ID ${payload.worker_id}`;
+    return 'Прямая регистрация';
+  })();
+
+  const dateStr = new Date().toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+
+  const text =
+    '🔄 <b>П2П СДЕЛКА ОТКРЫТА</b>\n\n' +
+    `👤 Пользователь: ${escapeHtml(userName)} (${userLink}) ID: <code>${payload.user_id}</code>\n` +
+    `👨‍💼 Воркер: ${escapeHtml(workerLabel)}\n` +
+    `💰 Сумма: <b>${Number(payload.amount).toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ${payload.currency}</b>\n` +
+    `🌍 Страна: ${escapeHtml(payload.country)}\n` +
+    `🏦 Банк: ${escapeHtml(payload.bank)}\n` +
+    `🧑‍💼 Продавец (фейк): ${escapeHtml(payload.seller_name)}\n` +
+    `📅 Время: ${dateStr}\n` +
+    `🆔 ID сделки: <code>${payload.deal_id}</code>\n\n` +
+    '📩 <b>Нажмите кнопку ниже чтобы отправить реквизиты покупателю:</b>';
+
+  const botLink = `https://t.me/${BOT_USERNAME}?start=p2p_${payload.deal_id}`;
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+  console.log('[P2P→TG] отправка в канал', { channelId, deal_id: payload.deal_id });
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: channelId,
+        text,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '👇 Отправить реквизиты покупателю', url: botLink },
+          ]],
+        },
+      }),
+    });
+    const data = (await res.json()) as { ok?: boolean; description?: string };
+    if (data.ok) {
+      console.log('[P2P→TG] успешно отправлено');
+      return { ok: true };
+    }
+    console.warn('[P2P→TG] ошибка Telegram API', data.description);
+    return { ok: false, error: data.description ?? 'Ошибка Telegram API' };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[P2P→TG] ошибка сети', err);
+    return { ok: false, error: msg };
+  }
 }
 
 /**
