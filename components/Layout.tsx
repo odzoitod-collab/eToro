@@ -14,12 +14,17 @@ interface LayoutProps {
 
 const PAGES_WITHOUT_BOTTOM_NAV: PageView[] = ['KYC', 'CURRENCY', 'LANGUAGE'];
 
+const isTelegramWebApp = () =>
+  typeof window !== 'undefined' && !!(window as any).Telegram?.WebApp;
+
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hideNavigation = false }) => {
   const { keyboardOpen, keyboardOffset } = useKeyboard();
   const hideBottomNav = PAGES_WITHOUT_BOTTOM_NAV.includes(currentPage) || keyboardOpen || hideNavigation;
   const hasActiveP2P =
     typeof window !== 'undefined' &&
     !!window.localStorage.getItem('etoro_active_p2p_deal');
+  const inMiniApp = isTelegramWebApp();
+  const mainPaddingBottom = keyboardOffset > 0 && !inMiniApp ? keyboardOffset + 16 : undefined;
 
   return (
     <div
@@ -37,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hide
           max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto
           ${hideBottomNav ? 'pb-2' : 'pb-20 lg:pb-8'}
         `}
-        style={keyboardOffset > 0 ? { paddingBottom: keyboardOffset + 16 } : undefined}
+        style={mainPaddingBottom != null ? { paddingBottom: mainPaddingBottom } : undefined}
       >
         {children}
       </main>

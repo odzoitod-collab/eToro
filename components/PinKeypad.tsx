@@ -26,7 +26,7 @@ const PinKeypad: React.FC<PinKeypadProps> = ({ value, onChange, onSubmit, error,
         setTimeout(() => onSubmit(next), 80);
       }
     },
-    [value, onChange, disabled]
+    [value, onChange, onSubmit, disabled]
   );
 
   const backspace = useCallback(() => {

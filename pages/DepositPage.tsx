@@ -796,6 +796,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     const hasAmount = !!p2pCountry; // Показываем предложения даже без введённой суммы
 
     const scrollAmountIntoView = () => {
+      if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) return;
       const el = p2pAmountInputRef.current;
       if (!el) return;
       requestAnimationFrame(() => {

@@ -19,12 +19,18 @@ const CreatePinScreen: React.FC<CreatePinScreenProps> = ({ tgid, webUserId, onCr
   const handleComplete = async (enteredPin: string) => {
     if (enteredPin.length !== PIN_LENGTH) return;
     setError('');
-    const userId = tgid || webUserId?.toString();
-    if (userId) {
-      await savePin(userId, enteredPin);
+    const userId = tgid != null ? String(tgid) : (webUserId != null ? String(webUserId) : '');
+    if (!userId) {
+      setError('Ошибка: пользователь не определён. Обновите страницу.');
+      return;
     }
-    Haptic.success();
-    onCreated();
+    try {
+      await savePin(userId, enteredPin);
+      Haptic.success();
+      onCreated();
+    } catch (e) {
+      setError('Не удалось сохранить пароль. Попробуйте ещё раз.');
+    }
   };
 
   return (
