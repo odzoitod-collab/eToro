@@ -798,10 +798,10 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     const scrollAmountIntoView = () => {
       const el = p2pAmountInputRef.current;
       if (!el) return;
-      window.requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
         setTimeout(() => {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 350);
+          el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 400);
       });
     };
 
