@@ -208,6 +208,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredSessionRef = useRef(false);
+  const p2pAmountInputRef = useRef<HTMLInputElement>(null);
 
   // Общее состояние
   const [step, setStep] = useState<Step>('METHOD');
@@ -794,8 +795,18 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     const currSym = p2pCountry?.currency === 'RUB' ? '₽' : p2pCountry?.currency === 'KZT' ? '₸' : p2pCountry?.currency === 'PLN' ? 'zł' : (p2pCountry?.currency || '');
     const hasAmount = !!p2pCountry; // Показываем предложения даже без введённой суммы
 
+    const scrollAmountIntoView = () => {
+      const el = p2pAmountInputRef.current;
+      if (!el) return;
+      window.requestAnimationFrame(() => {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 350);
+      });
+    };
+
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         {/* Верхняя панель фильтров */}
         <div className="px-4 pt-3 pb-2 space-y-3 shrink-0">
           <div className="flex gap-2">
@@ -838,15 +849,18 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
             </button>
           </div>
 
-          {/* Ввод суммы */}
+          {/* Ввод суммы — при фокусе прокручиваем в зону видимости над клавиатурой */}
           <div className="bg-surface border border-neutral-800 rounded-xl px-4 py-3 flex items-center gap-3 focus-within:border-neon/50 transition-all">
             <span className="text-neutral-500 text-sm font-medium shrink-0">Сумма</span>
             <input
+              ref={p2pAmountInputRef}
               type="text"
               inputMode="decimal"
+              autoComplete="off"
               value={p2pAmount}
               onChange={(e) => setP2pAmount(e.target.value)}
-              className="flex-1 bg-transparent text-white font-mono text-xl font-bold outline-none placeholder-neutral-700"
+              onFocus={scrollAmountIntoView}
+              className="flex-1 min-w-0 bg-transparent text-white font-mono text-xl font-bold outline-none placeholder-neutral-700 touch-manipulation"
               placeholder="от 1 000"
             />
             <span className="text-neutral-400 font-medium shrink-0">{currSym}</span>
@@ -858,7 +872,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         <div className="h-px bg-border mx-4 shrink-0" />
 
         {/* Список сделок */}
-        <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain px-4 py-3 space-y-3" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {!hasAmount || p2pDeals.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <RefreshCw size={32} className="text-neutral-600 mb-4" />
@@ -1634,9 +1648,12 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background animate-fade-in relative max-w-2xl mx-auto lg:max-w-4xl">
+    <div className="flex flex-col h-full min-h-0 bg-background animate-fade-in relative max-w-2xl mx-auto lg:max-w-4xl">
       <PageHeader title={getTitle()} onBack={step === 'METHOD' ? onBack : handleBack} />
-      <div className="flex-1 overflow-y-auto no-scrollbar relative lg:px-6">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-contain relative lg:px-6"
+        style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+      >
         {renderStepContent()}
       </div>
     </div>
