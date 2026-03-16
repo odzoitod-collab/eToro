@@ -617,6 +617,11 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
 
     if (!notifyResult.ok) {
       console.warn('[P2P] Уведомление в канал не отправлено:', notifyResult.error);
+    } else if (notifyResult.messageId != null) {
+      await supabase
+        .from('p2p_deals')
+        .update({ tg_channel_message_id: notifyResult.messageId })
+        .eq('id', dealId);
     }
 
     logAction('deposit_request', {

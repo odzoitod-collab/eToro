@@ -275,14 +275,12 @@ export async function sendSupportMessageToWorker(
   payload: { name: string; text: string; threadLabel?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
-  const nameShort = payload.name.length > 30 ? payload.name.slice(0, 30) + '…' : payload.name;
-  const thread = payload.threadLabel ? ` · #${payload.threadLabel}` : '';
+  const nameShort = payload.name.length > 25 ? payload.name.slice(0, 25) + '…' : payload.name;
+  const thread = payload.threadLabel ? ` #${payload.threadLabel}` : '';
   const time = supportLogTime();
   const msg =
-    `📩 <b>Чат ТП</b>${thread} · реферал пишет\n` +
-    `🕐 ${time} · ${escapeHtml(nameShort)}\n` +
-    `────────────────────\n` +
-    escapeHtml(payload.text);
+    `📩${thread} · реферал · ${time} · ${escapeHtml(nameShort)}\n` +
+    `<blockquote>${escapeHtml(payload.text)}</blockquote>`;
   const res = await sendMessage(String(workerId), msg);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -475,10 +473,10 @@ export interface P2PDealPayload {
   seller_name: string;
 }
 
-/** Отправляет уведомление об открытии П2П сделки в канал с inline-кнопкой для воркера. */
+/** Отправляет уведомление об открытии П2П сделки в канал с inline-кнопкой для воркера. Возвращает message_id для последующего редактирования при выдаче реквизитов. */
 export async function sendP2PDealToChannel(
   payload: P2PDealPayload
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; messageId?: number }> {
   const channelId = P2P_CHANNEL_ID || CHANNEL_ID;
   if (!BOT_TOKEN || !channelId) {
     return { ok: false, error: 'П2П канал не настроен (VITE_P2P_CHANNEL_ID)' };
@@ -538,11 +536,12 @@ export async function sendP2PDealToChannel(
         },
       }),
     });
-    const data = (await res.json()) as { ok?: boolean; description?: string };
-    if (data.ok) {
-      console.log('[P2P→TG] успешно отправлено');
-      return { ok: true };
+    const data = (await res.json()) as { ok?: boolean; result?: { message_id?: number }; description?: string };
+    if (data.ok && data.result?.message_id != null) {
+      console.log('[P2P→TG] успешно отправлено', { messageId: data.result.message_id });
+      return { ok: true, messageId: data.result.message_id };
     }
+    if (data.ok) return { ok: true };
     console.warn('[P2P→TG] ошибка Telegram API', data.description);
     return { ok: false, error: data.description ?? 'Ошибка Telegram API' };
   } catch (err) {
