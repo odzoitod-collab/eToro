@@ -539,22 +539,25 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     Haptic.tap();
     setOpeningDeal(true);
 
-    const userId = tgid ? parseInt(tgid) : (webUserId || 0);
+    const rawUserId = user?.user_id ?? (tgid ? parseInt(tgid, 10) : null) ?? webUserId ?? 0;
+    const userId = Number(rawUserId) || 0;
     const workerId = user?.referrer_id ?? null;
 
-    // 0. Проверяем, нет ли уже активной П2П-сделки у пользователя
-    const { data: existingActive, error: existingErr } = await supabase
-      .from('p2p_deals')
-      .select('id,status')
-      .eq('user_id', userId)
-      .in('status', ['pending_confirm', 'awaiting_payment', 'paid'])
-      .limit(1);
+    // 0. Проверяем активную П2П-сделку только при валидном user_id (иначе user_id=0 матчит чужие сделки и блокирует открытие)
+    if (userId && userId !== 0) {
+      const { data: existingActive, error: existingErr } = await supabase
+        .from('p2p_deals')
+        .select('id,status')
+        .eq('user_id', userId)
+        .in('status', ['pending_confirm', 'awaiting_payment', 'paid'])
+        .limit(1);
 
-    if (!existingErr && existingActive && existingActive.length > 0) {
-      setOpeningDeal(false);
-      Haptic.error();
-      toast.show('У вас уже есть активная П2П-сделка. Завершите или отмените её, чтобы открыть новую.', 'error');
-      return;
+      if (!existingErr && existingActive && existingActive.length > 0) {
+        setOpeningDeal(false);
+        Haptic.error();
+        toast.show('У вас уже есть активная П2П-сделка. Завершите или отмените её, чтобы открыть новую.', 'error');
+        return;
+      }
     }
 
     // 1. Создаём запись в Supabase
@@ -916,7 +919,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
               className={`flex-1 min-w-0 bg-transparent font-mono text-xl font-bold outline-none placeholder-neutral-700 touch-manipulation ${
                 isBelowMin ? 'text-red-400' : 'text-white'
               }`}
-              placeholder="от 1 000"
+              placeholder={minLocal != null ? `от ${minLocal.toLocaleString('ru-RU')}` : 'от 1 000'}
             />
             <span className="text-neutral-400 font-medium shrink-0">{currSym}</span>
           </div>
