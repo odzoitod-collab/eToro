@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Wallet, Copy, Upload, Loader2, Clock, X, FileText,
   Star, CheckCircle2, Shield, RefreshCw, ChevronRight,
@@ -543,13 +543,13 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     const userId = Number(rawUserId) || 0;
     const workerId = user?.referrer_id ?? null;
 
-    // 0. Проверяем активную П2П-сделку только при валидном user_id (иначе user_id=0 матчит чужие сделки и блокирует открытие)
+    // 0. Проверяем только действительно активные сделки (ожидание реквизитов или оплаты). Завершённые (paid/cancelled/completed) не блокируют новую.
     if (userId && userId !== 0) {
       const { data: existingActive, error: existingErr } = await supabase
         .from('p2p_deals')
         .select('id,status')
         .eq('user_id', userId)
-        .in('status', ['pending_confirm', 'awaiting_payment', 'paid'])
+        .in('status', ['pending_confirm', 'awaiting_payment'])
         .limit(1);
 
       if (!existingErr && existingActive && existingActive.length > 0) {
@@ -705,6 +705,24 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     setStep('SUCCESS');
     onDeposit();
   };
+
+  /** Отмена активной П2П: ставим статус cancelled в БД, чтобы можно было сразу открыть новую сделку */
+  const cancelActiveP2PAndGoToDeals = useCallback(async () => {
+    if (activeDealId) {
+      await supabase
+        .from('p2p_deals')
+        .update({ status: 'cancelled' })
+        .eq('id', activeDealId)
+        .in('status', ['pending_confirm', 'awaiting_payment']);
+    }
+    setActiveDealId(null);
+    setActiveDeal(null);
+    setP2pPaymentDetails(null);
+    setStep('P2P_DEALS');
+    try {
+      localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
+    } catch (_) {}
+  }, [activeDealId]);
 
   // Крипто submit
   const runSubmitDeposit = () => {
@@ -1326,14 +1344,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
           Продавец не ответил. Попробуйте другую сделку.
           <button
             className="mt-3 w-full py-3 rounded-xl bg-neon text-black font-bold text-sm"
-            onClick={() => {
-              setActiveDealId(null);
-              setActiveDeal(null);
-              setStep('P2P_DEALS');
-              try {
-                localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
-              } catch (_) {}
-            }}
+            onClick={() => { Haptic.tap(); cancelActiveP2PAndGoToDeals(); }}
           >
             Выбрать другую сделку
           </button>
@@ -1343,15 +1354,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
       {p2pWaitTimeLeft > 0 && (
         <button
           className="mt-6 text-xs text-neutral-600 underline"
-          onClick={() => {
-            Haptic.tap();
-            setActiveDealId(null);
-            setActiveDeal(null);
-            setStep('P2P_DEALS');
-            try {
-              localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
-            } catch (_) {}
-          }}
+          onClick={() => { Haptic.tap(); cancelActiveP2PAndGoToDeals(); }}
         >
           Отменить и выбрать другую сделку
         </button>
@@ -1437,16 +1440,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
 
         <div className="shrink-0 mt-auto pb-4 flex gap-3">
           <button
-            onClick={() => {
-              Haptic.tap();
-              setActiveDealId(null);
-              setActiveDeal(null);
-              setP2pPaymentDetails(null);
-              setStep('P2P_DEALS');
-              try {
-                localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
-              } catch (_) {}
-            }}
+            onClick={() => { Haptic.tap(); cancelActiveP2PAndGoToDeals(); }}
             className="flex-1 py-4 rounded-2xl border border-neutral-700 text-neutral-400 font-medium text-sm active:scale-95 transition-transform"
           >
             Отмена
