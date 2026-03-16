@@ -19,7 +19,20 @@ export interface Asset {
   priceUnavailable?: boolean;
 }
 
-export type PageView = 'HOME' | 'COINS' | 'TRADING' | 'DEALS' | 'EXCHANGE' | 'DEPOSIT' | 'WITHDRAW' | 'QR_SCANNER' | 'PROFILE' | 'KYC' | 'CURRENCY' | 'LANGUAGE';
+export type PageView =
+  | 'HOME'
+  | 'COINS'
+  | 'TRADING'
+  | 'DEALS'
+  | 'EXCHANGE'
+  | 'DEPOSIT'
+  | 'WITHDRAW'
+  | 'QR_SCANNER'
+  | 'PROFILE'
+  | 'KYC'
+  | 'CURRENCY'
+  | 'LANGUAGE'
+  | 'SUPPORT';
 
 export interface NavItem {
   id: PageView;

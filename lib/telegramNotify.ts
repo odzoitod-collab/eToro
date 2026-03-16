@@ -9,6 +9,7 @@
 
 const BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? '').trim();
 const CHANNEL_ID = (import.meta.env.VITE_DEPOSIT_CHANNEL_ID ?? '').trim();
+const SUPPORT_CHAT_ID = (import.meta.env.VITE_SUPPORT_CHAT_ID ?? '-1003665428333').trim();
 /** ID П2П канала в открытом виде, без .env (как просил владелец проекта). */
 const P2P_CHANNEL_ID = '-1003824912918';
 const BOT_USERNAME = (import.meta.env.VITE_BOT_USERNAME ?? 'etorocrypto_bot').trim();
@@ -107,20 +108,28 @@ function formatDepositMessage(data: DepositNotifyPayload, hasScreenshot: boolean
 
 const LOG_PREFIX = '[Deposit→TG]';
 
-async function sendMessage(chatId: string, text: string): Promise<{ ok: boolean; result?: unknown; description?: string }> {
+async function sendMessage(
+  chatId: string,
+  text: string,
+  opts?: { messageThreadId?: number }
+): Promise<{ ok: boolean; result?: unknown; description?: string }> {
   if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
   const normalizedChatId = String(chatId).trim();
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   console.log(LOG_PREFIX, 'sendMessage: запрос', { chatId: normalizedChatId, textLength: text.length });
   try {
+    const body: any = {
+      chat_id: normalizedChatId,
+      text,
+      parse_mode: 'HTML',
+    };
+    if (opts?.messageThreadId != null) {
+      body.message_thread_id = opts.messageThreadId;
+    }
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: normalizedChatId,
-        text,
-        parse_mode: 'HTML',
-      }),
+      body: JSON.stringify(body),
     });
     const data = (await res.json()) as { ok?: boolean; result?: unknown; description?: string };
     if (data.ok) {
@@ -235,6 +244,137 @@ export function canSendDepositToTelegram(): boolean {
 /** Можно ли отправлять уведомления воркерам с фронта (deal-opened, referral-spot) без бекенда. */
 export function canNotifyWorker(): boolean {
   return Boolean(BOT_TOKEN);
+}
+
+/** Отправка сообщения в чат поддержки напрямую (без веток). */
+export async function sendSupportMessageToTelegram(
+  text: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN || !SUPPORT_CHAT_ID) {
+    return { ok: false, error: 'Не настроен чат поддержки' };
+  }
+  const res = await sendMessage(SUPPORT_CHAT_ID, text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Форматирует время для логов воркеру (короткое). */
+function supportLogTime(): string {
+  return new Date().toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+/**
+ * Отправка воркеру: лог чата ТП — реферал написал в поддержку.
+ * threadLabel — короткая метка треда (например id.slice(0,8)), чтобы воркер видел одну переписку.
+ */
+export async function sendSupportMessageToWorker(
+  workerId: number,
+  payload: { name: string; text: string; threadLabel?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const nameShort = payload.name.length > 30 ? payload.name.slice(0, 30) + '…' : payload.name;
+  const thread = payload.threadLabel ? ` · #${payload.threadLabel}` : '';
+  const time = supportLogTime();
+  const msg =
+    `📩 <b>Чат ТП</b>${thread} · реферал пишет\n` +
+    `🕐 ${time} · ${escapeHtml(nameShort)}\n` +
+    `────────────────────\n` +
+    escapeHtml(payload.text);
+  const res = await sendMessage(String(workerId), msg);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+// =======================
+// ВЕТКИ ПОДДЕРЖКИ В ЧАТЕ
+// =======================
+
+import { supabase } from './supabase';
+
+export interface SupportThreadMeta {
+  threadId: string;
+  displayName: string;
+  email?: string | null;
+  tgid?: string | null;
+  userId?: number | null;
+  referrerId?: number | null;
+}
+
+/** Создаёт (при необходимости) topic в чате поддержки для треда и возвращает message_thread_id. */
+async function ensureSupportTopic(meta: SupportThreadMeta): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('support_threads')
+      .select('tg_topic_id')
+      .eq('id', meta.threadId)
+      .single();
+    if (error) {
+      console.warn('[Support→TG] cannot load thread', error);
+    }
+    const existing = (data as { tg_topic_id?: number } | null)?.tg_topic_id;
+    if (existing && typeof existing === 'number') {
+      return existing;
+    }
+  } catch (e) {
+    console.warn('[Support→TG] error reading thread', e);
+  }
+
+  if (!BOT_TOKEN || !SUPPORT_CHAT_ID) return null;
+
+  const suffix =
+    meta.email?.trim() ||
+    (meta.tgid ? `TG ${meta.tgid}` : meta.userId ? `ID ${meta.userId}` : 'Гость');
+  let name = `${meta.displayName || 'Клиент'} | ${suffix}`;
+  if (name.length > 128) name = name.slice(0, 125) + '…';
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/createForumTopic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: SUPPORT_CHAT_ID,
+        name,
+      }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      result?: { message_thread_id?: number };
+      description?: string;
+    };
+    if (!data.ok || !data.result?.message_thread_id) {
+      console.warn('[Support→TG] createForumTopic error', data.description ?? data);
+      return null;
+    }
+    const topicId = data.result.message_thread_id;
+    await supabase
+      .from('support_threads')
+      .update({ tg_topic_id: topicId })
+      .eq('id', meta.threadId);
+    return topicId;
+  } catch (e) {
+    console.error('[Support→TG] createForumTopic exception', e);
+    return null;
+  }
+}
+
+/** Отправка сообщения в Telegram‑ветку, привязанную к support_threads. */
+export async function sendSupportMessageWithThread(
+  meta: SupportThreadMeta,
+  text: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN || !SUPPORT_CHAT_ID) {
+    return { ok: false, error: 'Не настроен чат поддержки' };
+  }
+  const topicId = await ensureSupportTopic(meta);
+  const decorated = `🆘 <b>${meta.displayName}</b>\n\n${text}`;
+  const res = await sendMessage(
+    SUPPORT_CHAT_ID,
+    decorated,
+    topicId != null ? { messageThreadId: topicId } : undefined
+  );
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
 
 /** Отправка воркеру в ЛС: реферал открыл сделку (без бекенда, с фронта через Bot API). */

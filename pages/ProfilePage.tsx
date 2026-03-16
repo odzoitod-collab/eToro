@@ -20,6 +20,7 @@ interface ProfilePageProps {
   onNavigateToKyc?: () => void;
   onNavigateToCurrency?: () => void;
   onNavigateToLanguage?: () => void;
+  onNavigateToSupport?: () => void;
   /** Сигнализируем наверх, что открыт полноэкранный слой (чтобы скрыть навигацию). */
   onFullscreenChange?: (open: boolean) => void;
 }
@@ -32,6 +33,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   onNavigateToKyc,
   onNavigateToCurrency,
   onNavigateToLanguage,
+  onNavigateToSupport,
   onFullscreenChange,
 }) => {
   const { user, supportLink, tgid, webUserId } = useUser();
@@ -238,19 +240,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <ChevronRight size={14} className="text-neutral-600" />
             </button>
           )}
-          <a
-            href={supportLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group block hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
-            onClick={() => Haptic.tap()}
+          <button
+            type="button"
+            onClick={() => {
+              Haptic.tap();
+              if (onNavigateToSupport) {
+                onNavigateToSupport();
+              } else {
+                window.open(supportLink, '_blank', 'noopener,noreferrer');
+              }
+            }}
+            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
           >
             <div className="flex items-center gap-2.5">
               <HelpCircle size={16} className="text-neutral-500 group-hover:text-white" />
               <span className="text-xs font-medium text-neutral-300 group-hover:text-white">{t('support')}</span>
             </div>
             <ChevronRight size={14} className="text-neutral-600" />
-          </a>
+          </button>
           {isWebUser && webUserId && (
             <button
               type="button"

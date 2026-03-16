@@ -148,28 +148,35 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
             Haptic.tap();
             onNavigate('DEPOSIT');
           }}
-          className="w-full rounded-xl border border-neutral-700/80 bg-neutral-800/50 px-3 py-2 flex items-center justify-between gap-3 active:opacity-90 transition-opacity"
+          className={`w-full rounded-xl border px-3 py-2.5 flex items-center justify-between gap-3 active:opacity-90 transition-opacity ${
+            p2pBanner.status === 'payment'
+              ? 'border-emerald-500/60 bg-emerald-500/10'
+              : 'border-amber-500/50 bg-amber-500/10'
+          }`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex flex-col min-w-0">
-              <span className="text-[11px] text-neutral-400">
+              <span className="text-[11px] text-neutral-200">
                 Открытая П2П-сделка
               </span>
-              <span className="text-[11px] text-neutral-300 truncate">
+              <span className="text-[11px] text-neutral-100 truncate">
                 {p2pBanner.amount.toLocaleString('ru-RU')} {p2pBanner.currency} · {p2pBanner.bank}
+              </span>
+              <span className="text-[10px] text-neutral-300 mt-0.5">
+                Нажмите, чтобы продолжить
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {p2pBanner.status === 'payment' ? (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-neutral-700/50 text-[11px] text-neutral-300 font-mono">
-                <Clock size={11} className="text-neutral-400" />
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 text-[11px] text-emerald-200 font-mono">
+                <Clock size={11} />
                 {formatTime(p2pBanner.timeLeft)}
               </span>
             ) : (
-              <span className="text-[11px] text-neutral-500">Ожидание продавца</span>
+              <span className="text-[11px] text-amber-200">Ожидание продавца</span>
             )}
-            <ArrowRight size={14} className="text-neutral-500" />
+            <ArrowRight size={14} className="text-neutral-100" />
           </div>
         </button>
       )}

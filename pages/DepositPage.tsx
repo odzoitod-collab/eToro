@@ -126,17 +126,28 @@ const AVATAR_COLORS = [
 
 const P2P_ACTIVE_STORAGE_KEY = 'etoro_active_p2p_deal';
 
+function getP2PMinLocal(country: CountryBank, minDepositUsd: number): number {
+  // Минимальная сумма депозита в локальной валюте страны
+  const rate = country.exchange_rate || 1;
+  const workerMinLocalRaw = (minDepositUsd || 0) * rate;
+  const fallbackLocalRaw = 1000 * rate;
+  const baseMinLocalRaw = workerMinLocalRaw > 0 ? workerMinLocalRaw : fallbackLocalRaw;
+  return Math.round(baseMinLocalRaw / 100) * 100;
+}
+
 function seededRandom(seed: number, offset = 0): number {
   const x = Math.sin(seed * 9301 + offset * 49297 + 233) * 10000;
   return x - Math.floor(x);
 }
 
-function generateFakeDeals(amount: number | null, country: CountryBank, bankFilter: string): FakeP2PDeal[] {
-  // Минимальная сумма для генерации сделок — эквивалент 1000 RUB
-  const baseRubMin = 1000;
-  const rate = country.exchange_rate || 1;
-  const minLocal = Math.round((baseRubMin * rate) / 100) * 100;
-  const safeAmount = !amount || amount < minLocal ? minLocal * 5 : amount;
+function generateFakeDeals(
+  amount: number,
+  country: CountryBank,
+  bankFilter: string,
+  minDepositUsd: number,
+): FakeP2PDeal[] {
+  const minLocal = getP2PMinLocal(country, minDepositUsd);
+  const safeAmount = Math.max(amount, minLocal);
   const code = (country.country_code || 'RU').toUpperCase();
   const sellers = SELLERS_BY_COUNTRY[code] || DEFAULT_SELLERS;
   const allBanks = BANKS_BY_COUNTRY[code] || ['Bank'];
@@ -228,6 +239,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   const [p2pFile, setP2pFile] = useState<File | null>(null);
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [p2pPaymentMinDelayLeft, setP2pPaymentMinDelayLeft] = useState(0);
 
   // ------ Крипто состояние ------
   const [cryptoNetwork, setCryptoNetwork] = useState<CryptoNetwork>('trc20');
@@ -271,9 +283,13 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   const p2pDeals = useMemo<FakeP2PDeal[]>(() => {
     if (!p2pCountry) return [];
     const num = parseFloat(p2pAmount);
-    const safe = Number.isFinite(num) && num > 0 ? num : null;
-    return generateFakeDeals(safe, p2pCountry, p2pBank);
-  }, [p2pAmount, p2pCountry, p2pBank]);
+    if (!Number.isFinite(num) || num <= 0) return [];
+
+    const minLocal = getP2PMinLocal(p2pCountry, minDepositUsd);
+    if (num < minLocal) return [];
+
+    return generateFakeDeals(num, p2pCountry, p2pBank, minDepositUsd);
+  }, [p2pAmount, p2pCountry, p2pBank, minDepositUsd]);
 
   // Банки для выбранной П2П страны
   const p2pAvailBanks = useMemo<string[]>(() => {
@@ -353,6 +369,17 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     }, 1000);
     return () => clearInterval(iv);
   }, [step, p2pPayTimeLeft]);
+
+  // П2П — минимальная задержка перед "Я оплатил"
+  useEffect(() => {
+    if (step !== 'P2P_PAYMENT') return;
+    // 5 секунд минимального "прочтения" экрана оплаты
+    setP2pPaymentMinDelayLeft(5);
+    const iv = setInterval(() => {
+      setP2pPaymentMinDelayLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [step]);
 
   // П2П — Supabase Realtime подписка: ждём когда воркер введёт реквизиты в боте
   useEffect(() => {
@@ -439,7 +466,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
         }
 
         const status = (row as any).status as string;
-        if (status === 'paid' || status === 'completed' || status === 'cancelled') {
+        if (status === 'paid' || status === 'completed' || status === 'cancelled' || status === 'expired') {
           localStorage.removeItem(P2P_ACTIVE_STORAGE_KEY);
           return;
         }
@@ -514,6 +541,21 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
 
     const userId = tgid ? parseInt(tgid) : (webUserId || 0);
     const workerId = user?.referrer_id ?? null;
+
+    // 0. Проверяем, нет ли уже активной П2П-сделки у пользователя
+    const { data: existingActive, error: existingErr } = await supabase
+      .from('p2p_deals')
+      .select('id,status')
+      .eq('user_id', userId)
+      .in('status', ['pending_confirm', 'awaiting_payment', 'paid'])
+      .limit(1);
+
+    if (!existingErr && existingActive && existingActive.length > 0) {
+      setOpeningDeal(false);
+      Haptic.error();
+      toast.show('У вас уже есть активная П2П-сделка. Завершите или отмените её, чтобы открыть новую.', 'error');
+      return;
+    }
 
     // 1. Создаём запись в Supabase
     const { data: newDeal, error } = await supabase
@@ -793,7 +835,12 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
   const renderP2PDealsStep = () => {
     const flagEmoji = COUNTRY_FLAGS[(p2pCountry?.country_code || '').toUpperCase()] || '🌍';
     const currSym = p2pCountry?.currency === 'RUB' ? '₽' : p2pCountry?.currency === 'KZT' ? '₸' : p2pCountry?.currency === 'PLN' ? 'zł' : (p2pCountry?.currency || '');
-    const hasAmount = !!p2pCountry; // Показываем предложения даже без введённой суммы
+    const hasCountry = !!p2pCountry;
+
+    const minLocal = p2pCountry ? getP2PMinLocal(p2pCountry, minDepositUsd) : null;
+    const amountNum = parseFloat(p2pAmount);
+    const isAmountValid = Number.isFinite(amountNum) && amountNum > 0;
+    const isBelowMin = !!(minLocal && isAmountValid && amountNum < minLocal);
 
     const scrollAmountIntoView = () => {
       if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) return;
@@ -861,10 +908,22 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
               value={p2pAmount}
               onChange={(e) => setP2pAmount(e.target.value)}
               onFocus={scrollAmountIntoView}
-              className="flex-1 min-w-0 bg-transparent text-white font-mono text-xl font-bold outline-none placeholder-neutral-700 touch-manipulation"
+              className={`flex-1 min-w-0 bg-transparent font-mono text-xl font-bold outline-none placeholder-neutral-700 touch-manipulation ${
+                isBelowMin ? 'text-red-400' : 'text-white'
+              }`}
               placeholder="от 1 000"
             />
             <span className="text-neutral-400 font-medium shrink-0">{currSym}</span>
+          </div>
+          <div className="flex justify-between items-center px-1 mt-1">
+            <span className="text-[11px] text-neutral-500">
+              Минимальная сумма сделки: {minLocal?.toLocaleString('ru-RU')}{' '}{currSym}
+            </span>
+            {isBelowMin && (
+              <span className="text-[11px] text-red-400">
+                От {minLocal?.toLocaleString('ru-RU')} {currSym}
+              </span>
+            )}
           </div>
 
           {/* Быстрый выбор суммы — отключён по дизайну */}
@@ -874,11 +933,38 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
 
         {/* Список сделок */}
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain px-4 py-3 space-y-3" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-          {!hasAmount || p2pDeals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+          {(!hasCountry || !isAmountValid || p2pDeals.length === 0) ? (
+            <div className="flex flex-col items-center justify-center py-14 text-center px-6">
               <RefreshCw size={32} className="text-neutral-600 mb-4" />
-              <p className="text-neutral-400 text-sm">Подбираем предложения…</p>
-              <p className="text-neutral-600 text-xs mt-1">Уточните сумму или банк, чтобы список стал точнее</p>
+              {isBelowMin ? (
+                <>
+                  <p className="text-neutral-300 text-sm mb-1">
+                    Сначала укажите сумму от {minLocal?.toLocaleString('ru-RU')} {currSym}
+                  </p>
+                  <p className="text-neutral-600 text-xs mb-3">
+                    Это минимальная сумма сделки по условиям мерчанта.
+                  </p>
+                  {minLocal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        Haptic.tap();
+                        setP2pAmount(String(minLocal));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-neon/15 border border-neon/40 text-neon text-xs font-semibold active:scale-95 transition-transform"
+                    >
+                      Поставить минимум
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-neutral-400 text-sm">Подбираем предложения…</p>
+                  <p className="text-neutral-600 text-xs mt-1">
+                    Укажите сумму и банк, чтобы увидеть доступные сделки.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -1296,7 +1382,16 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
           <div className="text-xs text-neutral-500 mt-1">Банк: {activeDeal?.bank}</div>
         </div>
 
-        {/* Реквизиты от воркера */}
+        {/* Инфострип перед реквизитами */}
+        <div className="mb-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-100 flex items-start gap-2">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            Отправляйте <span className="font-semibold">точно</span> {activeDeal?.amount.toLocaleString('ru-RU')} {currSym}.
+            {p2pPaymentDetails?.comment && ' Комментарий обязателен, если он указан ниже.'}
+          </span>
+        </div>
+
+        {/* Реквизиты получателя */}
         {p2pPaymentDetails && (
           <div className="bg-surface border border-neutral-800 rounded-2xl p-4 mb-3 relative overflow-hidden shrink-0">
             <div className="absolute left-0 top-0 w-1 h-full bg-neon rounded-l-2xl" />
@@ -1350,9 +1445,10 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
           </button>
           <button
             onClick={() => { Haptic.tap(); setStep('P2P_CHECK'); }}
-            className="flex-2 flex-1 py-4 bg-neon text-black font-bold rounded-2xl active:scale-95 transition-transform"
+            disabled={timeExpired || p2pPaymentMinDelayLeft > 0}
+            className="flex-2 flex-1 py-4 bg-neon text-black font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50 disabled:pointer-events-none"
           >
-            Я оплатил →
+            {p2pPaymentMinDelayLeft > 0 && !timeExpired ? `Подтверждение будет доступно через ${p2pPaymentMinDelayLeft} c` : 'Я оплатил →'}
           </button>
         </div>
       </div>
@@ -1363,7 +1459,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     <div className="px-4 pt-6 flex flex-col items-center h-full">
       <h2 className="text-lg font-bold mb-1">Прикрепите скриншот</h2>
       <p className="text-sm text-neutral-500 text-center mb-6">
-        Загрузите скриншот транзакции. Это обязательный шаг для подтверждения оплаты.
+        Это поможет нам быстрее подтвердить платёж. Загрузите скриншот транзакции.
       </p>
 
       <input
@@ -1408,6 +1504,21 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
       >
         {submitting ? <Loader2 size={20} className="animate-spin" /> : 'Подтвердить оплату'}
       </button>
+
+      <div className="w-full max-w-sm mt-2 mb-6 text-[11px] text-neutral-500 space-y-1">
+        <div className="flex items-start gap-2">
+          <span className="mt-[2px] text-neutral-400">1.</span>
+          <span>Сумма и валюта на скрине совпадают с суммой сделки.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="mt-[2px] text-neutral-400">2.</span>
+          <span>Комментарий к переводу (если был указан) присутствует.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="mt-[2px] text-neutral-400">3.</span>
+          <span>На скрине хорошо видно время и статус платежа.</span>
+        </div>
+      </div>
     </div>
   );
 

@@ -9,6 +9,7 @@ import DepositPage from './pages/DepositPage';
 import WithdrawPage from './pages/WithdrawPage';
 import QRScannerPage from './pages/QRScannerPage';
 import ProfilePage from './pages/ProfilePage';
+import SupportPage from './pages/SupportPage';
 import KycPage from './pages/KycPage';
 import { PageView, Asset, Deal, DealStatus } from './types';
 import type { SpotHolding } from './types';
@@ -133,8 +134,15 @@ const AppContent: React.FC = () => {
   const [hideNavFromProfileFullscreen, setHideNavFromProfileFullscreen] = useState(false);
 
   const refId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ref') : null;
+  const openSupport = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('open') === 'support' : false;
   // Требуем вход/регистрацию при любом заходе не через TG (не mini app, не бота)
   const showAuthGate = !tgid && !webId && !loading;
+
+  useEffect(() => {
+    if (openSupport && !showAuthGate && user) {
+      setCurrentPage('SUPPORT');
+    }
+  }, [openSupport, showAuthGate, user]);
   const userLuckRef = useRef<'win' | 'lose' | 'default'>(user?.luck ?? 'default');
   const paidDealIds = useRef<Set<string>>(new Set());
   userLuckRef.current = user?.luck ?? 'default';
@@ -570,6 +578,7 @@ const AppContent: React.FC = () => {
             onNavigateToKyc={() => setCurrentPage('KYC')}
             onNavigateToCurrency={() => handleNavigate('CURRENCY')}
             onNavigateToLanguage={() => handleNavigate('LANGUAGE')}
+            onNavigateToSupport={() => handleNavigate('SUPPORT')}
             onFullscreenChange={setHideNavFromProfileFullscreen}
           />
         );
@@ -579,6 +588,8 @@ const AppContent: React.FC = () => {
         return <CurrencyPickerPage onBack={() => handleNavigate('HOME')} />;
       case 'LANGUAGE':
         return <LanguagePickerPage onBack={() => handleNavigate('PROFILE')} />;
+      case 'SUPPORT':
+        return <SupportPage onBack={() => handleNavigate('PROFILE')} />;
       default:
         return (
           <HomePage
