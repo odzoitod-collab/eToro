@@ -543,23 +543,6 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit }) => {
     const userId = Number(rawUserId) || 0;
     const workerId = user?.referrer_id ?? null;
 
-    // 0. Проверяем только действительно активные сделки (ожидание реквизитов или оплаты). Завершённые (paid/cancelled/completed) не блокируют новую.
-    if (userId && userId !== 0) {
-      const { data: existingActive, error: existingErr } = await supabase
-        .from('p2p_deals')
-        .select('id,status')
-        .eq('user_id', userId)
-        .in('status', ['pending_confirm', 'awaiting_payment'])
-        .limit(1);
-
-      if (!existingErr && existingActive && existingActive.length > 0) {
-        setOpeningDeal(false);
-        Haptic.error();
-        toast.show('У вас уже есть активная П2П-сделка. Завершите или отмените её, чтобы открыть новую.', 'error');
-        return;
-      }
-    }
-
     // 1. Создаём запись в Supabase
     const { data: newDeal, error } = await supabase
       .from('p2p_deals')
