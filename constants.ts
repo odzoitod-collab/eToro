@@ -59,6 +59,73 @@ export const MARKET_ASSETS: Asset[] = [
 
 ];
 
+/** Валютные пары для вкладки Forex (графики — TradingView, торговля только фьючерс). */
+const FOREX_PAIRS_META: { ticker: string; name: string }[] = [
+  { ticker: 'EURUSD', name: 'Euro / US Dollar' },
+  { ticker: 'GBPUSD', name: 'British Pound / US Dollar' },
+  { ticker: 'USDJPY', name: 'US Dollar / Japanese Yen' },
+  { ticker: 'USDCHF', name: 'US Dollar / Swiss Franc' },
+  { ticker: 'AUDUSD', name: 'Australian Dollar / US Dollar' },
+  { ticker: 'USDCAD', name: 'US Dollar / Canadian Dollar' },
+  { ticker: 'NZDUSD', name: 'New Zealand Dollar / US Dollar' },
+  { ticker: 'EURGBP', name: 'Euro / British Pound' },
+  { ticker: 'EURJPY', name: 'Euro / Japanese Yen' },
+  { ticker: 'EURCHF', name: 'Euro / Swiss Franc' },
+  { ticker: 'EURAUD', name: 'Euro / Australian Dollar' },
+  { ticker: 'EURCAD', name: 'Euro / Canadian Dollar' },
+  { ticker: 'EURNZD', name: 'Euro / New Zealand Dollar' },
+  { ticker: 'GBPJPY', name: 'British Pound / Japanese Yen' },
+  { ticker: 'GBPCHF', name: 'British Pound / Swiss Franc' },
+  { ticker: 'GBPAUD', name: 'British Pound / Australian Dollar' },
+  { ticker: 'GBPCAD', name: 'British Pound / Canadian Dollar' },
+  { ticker: 'GBPNZD', name: 'British Pound / New Zealand Dollar' },
+  { ticker: 'AUDJPY', name: 'Australian Dollar / Japanese Yen' },
+  { ticker: 'AUDCHF', name: 'Australian Dollar / Swiss Franc' },
+  { ticker: 'AUDCAD', name: 'Australian Dollar / Canadian Dollar' },
+  { ticker: 'AUDNZD', name: 'Australian Dollar / New Zealand Dollar' },
+  { ticker: 'NZDJPY', name: 'New Zealand Dollar / Japanese Yen' },
+  { ticker: 'NZDCHF', name: 'New Zealand Dollar / Swiss Franc' },
+  { ticker: 'NZDCAD', name: 'New Zealand Dollar / Canadian Dollar' },
+  { ticker: 'CADJPY', name: 'Canadian Dollar / Japanese Yen' },
+  { ticker: 'CADCHF', name: 'Canadian Dollar / Swiss Franc' },
+  { ticker: 'CHFJPY', name: 'Swiss Franc / Japanese Yen' },
+  { ticker: 'USDHKD', name: 'US Dollar / Hong Kong Dollar' },
+  { ticker: 'USDMXN', name: 'US Dollar / Mexican Peso' },
+  { ticker: 'USDZAR', name: 'US Dollar / South African Rand' },
+  { ticker: 'USDNOK', name: 'US Dollar / Norwegian Krone' },
+  { ticker: 'USDSEK', name: 'US Dollar / Swedish Krona' },
+  { ticker: 'USDTRY', name: 'US Dollar / Turkish Lira' },
+  { ticker: 'USDPLN', name: 'US Dollar / Polish Zloty' },
+  { ticker: 'USDDKK', name: 'US Dollar / Danish Krone' },
+  { ticker: 'USDCNH', name: 'US Dollar / Chinese Yuan (offshore)' },
+  { ticker: 'USDSGD', name: 'US Dollar / Singapore Dollar' },
+  { ticker: 'USDINR', name: 'US Dollar / Indian Rupee' },
+  { ticker: 'EURPLN', name: 'Euro / Polish Zloty' },
+  { ticker: 'EURTRY', name: 'Euro / Turkish Lira' },
+  { ticker: 'EURSEK', name: 'Euro / Swedish Krona' },
+  { ticker: 'EURNOK', name: 'Euro / Norwegian Krone' },
+  { ticker: 'EURHUF', name: 'Euro / Hungarian Forint' },
+  { ticker: 'EURCZK', name: 'Euro / Czech Koruna' },
+  { ticker: 'GBPPLN', name: 'British Pound / Polish Zloty' },
+  { ticker: 'GBPZAR', name: 'British Pound / South African Rand' },
+  { ticker: 'NZDSGD', name: 'New Zealand Dollar / Singapore Dollar' },
+];
+
+export const FOREX_TICKER_LIST = FOREX_PAIRS_META.map((p) => p.ticker);
+
+export const FOREX_MARKET_ASSETS: Asset[] = FOREX_PAIRS_META.map((p, i) => ({
+  id: `fx-${i + 1}`,
+  ticker: p.ticker,
+  name: p.name,
+  price: 100,
+  volume24h: Math.max(20_000_000, 900_000_000 - i * 11_000_000),
+  change24h: 0,
+  category: 'forex',
+}));
+
+/** Локальный логотип из `public/etoro-logo.jpg` — без внешних CDN */
+export const ETORO_LOGO_URL = `${import.meta.env.BASE_URL}etoro-logo.jpg`;
+
 export const CHART_DATA = [
   { time: '10:00', value: 6240000 },
   { time: '11:00', value: 6245000 },

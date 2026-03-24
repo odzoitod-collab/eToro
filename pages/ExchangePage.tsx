@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ArrowLeftRight, Loader2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
@@ -25,7 +25,7 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
   onPickerOpenChange,
 }) => {
   const { t } = useLanguage();
-  const { formatPrice, symbol, convertToRub } = useCurrency();
+  const { formatPrice, symbol, convertToRub, convertFromRub, currencyCode } = useCurrency();
   const { user, refreshUser } = useUser();
   const toast = useToast();
   const liveAssets = useLiveAssets(MARKET_ASSETS);
@@ -59,7 +59,8 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
   const holdingFrom = fromSide === 'currency' ? null : spotHoldings.find((h) => h.ticker === fromSide);
   const fromAmount = fromSide === 'currency' ? 0 : (holdingFrom?.amount ?? 0);
 
-  const numAmount = parseFloat(amount.replace(',', '.')) || 0;
+  const normalizedAmount = amount.replace(',', '.');
+  const numAmount = parseFloat(normalizedAmount) || 0;
 
   const isFromCurrency = fromSide === 'currency';
   const isToCurrency = toSide === 'currency';
@@ -73,10 +74,31 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
   const canSubmit =
     fromSide !== toSide &&
     numAmount > 0 &&
+    Number.isFinite(amountInRub) &&
     amountInRub >= MIN_EXCHANGE_RUB &&
     (isFromCurrency
       ? balanceRub >= convertToRub(numAmount) && (isToCurrency || priceToRub > 0)
       : fromAmount >= numAmount && priceFromRub > 0 && (isToCurrency || priceToRub > 0));
+
+  const amountPresetsRub = useMemo(
+    () =>
+      [...new Set([MIN_EXCHANGE_RUB, 1000, 5000, Math.floor(balanceRub * 0.5), balanceRub])]
+        .filter((v) => v >= MIN_EXCHANGE_RUB && v > 0)
+        .sort((a, b) => a - b)
+        .slice(0, 4),
+    [balanceRub]
+  );
+
+  const sanitizeDecimalInput = (raw: string) => {
+    const cleaned = raw.replace(',', '.').replace(/[^0-9.]/g, '');
+    const [intPart, ...rest] = cleaned.split('.');
+    const fraction = rest.join('');
+    return rest.length > 0 ? `${intPart}.${fraction}` : intPart;
+  };
+
+  useEffect(() => {
+    setAmount('');
+  }, [fromSide]);
 
   const handleSubmit = async () => {
     if (!user || !canSubmit) return;
@@ -204,13 +226,33 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
                 inputMode="decimal"
                 placeholder={isFromCurrency ? `0 ${symbol}` : '0'}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value))}
                 className="w-full bg-surface border border-border rounded-xl px-3 py-2.5 text-textPrimary font-mono text-sm placeholder:text-textMuted focus:outline-none focus:border-neon/50 focus:ring-1 focus:ring-neon/20 transition-colors"
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[10px] font-mono text-textMuted">
                   {t('exchange_min_amount', { amount: `${formatPrice(MIN_EXCHANGE_RUB)} ${symbol}` })}
                 </p>
+                {isFromCurrency && amountPresetsRub.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {amountPresetsRub.map((presetRub) => {
+                      const presetDisplay = convertFromRub(presetRub);
+                      return (
+                        <button
+                          key={presetRub}
+                          type="button"
+                          onClick={() => {
+                            Haptic.tap();
+                            setAmount(String(presetDisplay));
+                          }}
+                          className="text-[10px] font-mono text-neon hover:underline active:scale-95"
+                        >
+                          {formatPrice(presetRub)} {symbol}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {!isFromCurrency && fromAmount > 0 && (
                   <button
                     type="button"
@@ -254,7 +296,10 @@ const ExchangePage: React.FC<ExchangePageProps> = ({
                 <ChevronDown size={16} className="text-textMuted flex-shrink-0" />
               </button>
               {amount && numAmount > 0 && (
-                <p className="mt-3 text-sm font-mono font-bold text-neon">{resultText}</p>
+                <p className="mt-3 text-sm font-mono font-bold text-neon">
+                  {resultText}
+                  {isToCurrency && <span className="text-textMuted font-normal ml-2">({currencyCode})</span>}
+                </p>
               )}
             </div>
           </div>

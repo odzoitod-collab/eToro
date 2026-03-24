@@ -5,6 +5,7 @@ import TradingPage from './pages/TradingPage';
 import CoinsPage from './pages/CoinsPage';
 import DealsPage from './pages/DealsPage';
 import ExchangePage from './pages/ExchangePage';
+import StakingPage from './pages/StakingPage';
 import DepositPage from './pages/DepositPage';
 import WithdrawPage from './pages/WithdrawPage';
 import QRScannerPage from './pages/QRScannerPage';
@@ -13,7 +14,8 @@ import SupportPage from './pages/SupportPage';
 import KycPage from './pages/KycPage';
 import { PageView, Asset, Deal, DealStatus } from './types';
 import type { SpotHolding } from './types';
-import { MOCK_ASSETS, MARKET_ASSETS } from './constants';
+import type { StakingPosition, StakingRate } from './types';
+import { MOCK_ASSETS, MARKET_ASSETS, FOREX_MARKET_ASSETS } from './constants';
 import { useLiveAssets } from './utils/useLiveAssets';
 import { Haptic } from './utils/haptics';
 import { useUser } from './context/UserContext';
@@ -21,6 +23,7 @@ import { usePin } from './context/PinContext';
 import { supabase } from './lib/supabase';
 import { tradeRowToDeal, dealToTradeInsert } from './lib/trades';
 import { fetchSpotHoldings } from './lib/spot';
+import { accrualToBalance, fetchStakingPositions, fetchStakingRates } from './lib/staking';
 import { useToast } from './context/ToastContext';
 import { useLanguage } from './context/LanguageContext';
 import { getSupabaseErrorMessage } from './lib/supabaseError';
@@ -33,7 +36,8 @@ import CurrencyPickerPage from './pages/CurrencyPickerPage';
 import LanguagePickerPage from './pages/LanguagePickerPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+import RegisterPage, { POST_REGISTER_WELCOME_KEY } from './pages/RegisterPage';
+import PostRegisterWelcome from './components/PostRegisterWelcome';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
 import { useWebAuth } from './context/WebAuthContext';
 import { PasswordChangeProvider, usePasswordChange } from './context/PasswordChangeContext';
@@ -124,6 +128,8 @@ const AppContent: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [spotHoldings, setSpotHoldings] = useState<SpotHolding[]>([]);
+  const [stakingPositions, setStakingPositions] = useState<StakingPosition[]>([]);
+  const [stakingRates, setStakingRates] = useState<StakingRate[]>([]);
   const [tradingInitialState, setTradingInitialState] = useState<{ tradeType?: 'futures' | 'spot'; spotAction?: 'buy' | 'sell' } | null>(null);
   const [onboardingDone, setOnboardingDone] = useState(false);
   const [pinCreated, setPinCreated] = useState(false);
@@ -132,6 +138,7 @@ const AppContent: React.FC = () => {
   const [hideNavFromExchangePicker, setHideNavFromExchangePicker] = useState(false);
   const [loadingAnimationDone, setLoadingAnimationDone] = useState(false);
   const [hideNavFromProfileFullscreen, setHideNavFromProfileFullscreen] = useState(false);
+  const [showPostRegWelcome, setShowPostRegWelcome] = useState(false);
 
   const refId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('ref') : null;
   const openSupport = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('open') === 'support' : false;
@@ -143,12 +150,32 @@ const AppContent: React.FC = () => {
       setCurrentPage('SUPPORT');
     }
   }, [openSupport, showAuthGate, user]);
+
+  /** После PIN веб-пользователя — показать welcome, если только что зарегистрировались */
+  useEffect(() => {
+    if (tgid || !webUserId || !user || !pinCreated) {
+      setShowPostRegWelcome(false);
+      return;
+    }
+    try {
+      if (sessionStorage.getItem(POST_REGISTER_WELCOME_KEY) === '1') {
+        setShowPostRegWelcome(true);
+      }
+    } catch {
+      setShowPostRegWelcome(false);
+    }
+  }, [tgid, webUserId, user?.user_id, pinCreated]);
   const userLuckRef = useRef<'win' | 'lose' | 'default'>(user?.luck ?? 'default');
   const paidDealIds = useRef<Set<string>>(new Set());
   userLuckRef.current = user?.luck ?? 'default';
 
   const balance = user?.balance ?? 0;
-  const liveAssetsForTrading = useLiveAssets(MARKET_ASSETS);
+  const liveCrypto = useLiveAssets(MARKET_ASSETS);
+  const liveForex = useLiveAssets(FOREX_MARKET_ASSETS);
+  const liveAssetsForTrading = React.useMemo(
+    () => [...liveCrypto, ...liveForex],
+    [liveCrypto, liveForex]
+  );
 
   // Управляем видимостью навигации при создании PIN или смене пароля
   useEffect(() => {
@@ -181,6 +208,23 @@ const AppContent: React.FC = () => {
     setSpotHoldings(list);
     refreshUser();
   }, [user, refreshUser]);
+
+  const refreshStaking = React.useCallback(async () => {
+    if (!user) return;
+    const pricesRub = Object.fromEntries(
+      liveAssetsForTrading
+        .filter((asset) => Number.isFinite(asset.price) && asset.price > 0)
+        .map((asset) => [asset.ticker, asset.price])
+    );
+    await accrualToBalance(user.user_id, pricesRub);
+    const [positions, rates] = await Promise.all([
+      fetchStakingPositions(user.user_id),
+      fetchStakingRates(),
+    ]);
+    setStakingPositions(positions);
+    setStakingRates(rates);
+    refreshUser();
+  }, [user, liveAssetsForTrading, refreshUser]);
 
   const notifyReferralSpotBuy = React.useCallback((ticker: string, amountRub: number) => {
     const base =
@@ -215,6 +259,7 @@ const AppContent: React.FC = () => {
       if (sessionStorage.getItem(key)) return;
       sessionStorage.setItem(key, '1');
       sendReferralLoginToWorker(user.referrer_id, {
+        user_id: user.user_id,
         full_name: user.full_name || user.username || 'Клиент',
       }).catch(() => {});
     } catch (_) {}
@@ -224,6 +269,11 @@ const AppContent: React.FC = () => {
     if (!user) return;
     fetchSpotHoldings(user.user_id).then(setSpotHoldings);
   }, [user?.user_id]);
+
+  useEffect(() => {
+    if (!user) return;
+    refreshStaking();
+  }, [user?.user_id, refreshStaking]);
 
   // Game loop: price movement and deal expiration; result by luck (win/lose/random)
   useEffect(() => {
@@ -436,6 +486,7 @@ const AppContent: React.FC = () => {
         <LoginPage
           onBack={() => setAuthSubPage(null)}
           onSuccess={() => setAuthSubPage(null)}
+          onGoRegister={() => setAuthSubPage('register')}
         />
       );
     }
@@ -445,6 +496,7 @@ const AppContent: React.FC = () => {
           refId={refId || ''}
           onBack={() => setAuthSubPage(null)}
           onSuccess={() => setAuthSubPage(null)}
+          onGoLogin={() => setAuthSubPage('login')}
         />
       );
     }
@@ -522,15 +574,23 @@ const AppContent: React.FC = () => {
           <CoinsPage
             onNavigateToTrading={handleNavigateToTrading}
             spotHoldings={spotHoldings}
+            stakingPositions={stakingPositions}
+            stakingRates={stakingRates}
             refreshSpotHoldings={refreshSpotHoldings}
+            refreshStaking={refreshStaking}
             userId={user?.user_id ?? 0}
           />
         );
       case 'TRADING': {
-        const tradingAsset =
-          (selectedAsset && liveAssetsForTrading.find((a) => a.ticker === selectedAsset.ticker)) ||
-          liveAssetsForTrading[0] ||
-          MOCK_ASSETS[0];
+        /** Без Forex в списке find() не находил пару → падение на BTC (live[0]). */
+        const tradingAsset = (() => {
+          if (selectedAsset) {
+            const live = liveAssetsForTrading.find((a) => a.ticker === selectedAsset.ticker);
+            if (live) return live;
+            return selectedAsset;
+          }
+          return liveAssetsForTrading[0] ?? MOCK_ASSETS[0];
+        })();
         return (
           <TradingPage
             asset={tradingAsset}
@@ -554,6 +614,7 @@ const AppContent: React.FC = () => {
             spotHoldings={spotHoldings}
             userId={user?.user_id ?? 0}
             onNavigateToTrading={handleNavigateToTrading}
+            onNavigateToExchange={() => handleNavigate('EXCHANGE')}
           />
         );
       case 'EXCHANGE':
@@ -562,6 +623,17 @@ const AppContent: React.FC = () => {
             spotHoldings={spotHoldings}
             refreshSpotHoldings={refreshSpotHoldings}
             onPickerOpenChange={setHideNavFromExchangePicker}
+          />
+        );
+      case 'STAKING':
+        return (
+          <StakingPage
+            spotHoldings={spotHoldings}
+            stakingPositions={stakingPositions}
+            stakingRates={stakingRates}
+            refreshStaking={refreshStaking}
+            userId={user?.user_id ?? 0}
+            onNavigateToTrading={handleNavigateToTrading}
           />
         );
       case 'DEPOSIT':
@@ -579,6 +651,7 @@ const AppContent: React.FC = () => {
             onNavigateToCurrency={() => handleNavigate('CURRENCY')}
             onNavigateToLanguage={() => handleNavigate('LANGUAGE')}
             onNavigateToSupport={() => handleNavigate('SUPPORT')}
+            onNavigateToExchange={() => handleNavigate('EXCHANGE')}
             onFullscreenChange={setHideNavFromProfileFullscreen}
           />
         );
@@ -604,6 +677,15 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const dismissPostRegisterWelcome = () => {
+    try {
+      sessionStorage.removeItem(POST_REGISTER_WELCOME_KEY);
+    } catch {
+      /* ignore */
+    }
+    setShowPostRegWelcome(false);
+  };
+
   return (
     <CurrencyProvider>
       <LocaleCurrencySync />
@@ -614,6 +696,19 @@ const AppContent: React.FC = () => {
       >
         {renderContent()}
       </Layout>
+      {showPostRegWelcome ? (
+        <PostRegisterWelcome
+          onDeposit={() => {
+            dismissPostRegisterWelcome();
+            handleNavigate('DEPOSIT');
+          }}
+          onBuyCrypto={() => {
+            dismissPostRegisterWelcome();
+            handleNavigate('EXCHANGE');
+          }}
+          onDismiss={dismissPostRegisterWelcome}
+        />
+      ) : null}
     </CurrencyProvider>
   );
 };

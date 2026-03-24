@@ -105,7 +105,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hide
           <button
             type="button"
             onClick={() => { Haptic.tap(); onNavigate('SUPPORT'); }}
-            className="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-40 h-12 w-12 rounded-full bg-neutral-700/90 text-white border border-neutral-600 flex items-center justify-center active:scale-95 transition-transform hover:bg-neutral-600"
+            className="fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-40 h-12 w-12 rounded-full bg-surfaceElevated/95 text-textPrimary shadow-lg shadow-black/40 flex items-center justify-center active:scale-95 transition-transform hover:bg-card"
             aria-label="Чат поддержки"
           >
             <MessageCircle size={22} strokeWidth={2} />

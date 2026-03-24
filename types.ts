@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type AssetCategory = 'crypto' | 'stock' | 'commodity';
+export type AssetCategory = 'crypto' | 'stock' | 'commodity' | 'forex';
 
 export interface Asset {
   id: string;
@@ -11,10 +11,12 @@ export interface Asset {
   change24h: number; // Percentage
   isNew?: boolean;
   /**
-   * Тип актива: криптовалюта, акция или сырьевой инструмент.
+   * Тип актива: криптовалюта, акция, сырьё или валютная пара (Forex).
    * Если не указан, по умолчанию считаем crypto.
    */
   category?: AssetCategory;
+  /** Явный символ TradingView (например FX_IDC:EURUSD). Если не задан — выводится из ticker и category. */
+  tradingViewSymbol?: string;
   /** true, если цену не удалось получить (например, CORS для Yahoo Finance) — в UI показывать "—". */
   priceUnavailable?: boolean;
 }
@@ -23,6 +25,7 @@ export type PageView =
   | 'HOME'
   | 'COINS'
   | 'TRADING'
+  | 'STAKING'
   | 'DEALS'
   | 'EXCHANGE'
   | 'DEPOSIT'

@@ -9,7 +9,12 @@ import { usePin } from '../context/PinContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useWebAuth } from '../context/WebAuthContext';
-import { getTradingViewSymbol, getTradingViewSymbolLabel, getTradingViewChartUrl } from '../utils/chartSymbol';
+import {
+  getTradingViewChartUrl,
+  getTradingViewSymbolForAsset,
+  getTradingViewSymbolLabelForAsset,
+  formatFxRateQuote,
+} from '../utils/chartSymbol';
 import { fetchAssetPricesInRub } from '../lib/cryptoPrices';
 import { spotBuy, spotSell } from '../lib/spot';
 import type { SpotHolding } from '../types';
@@ -64,7 +69,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
   const { user, tgid } = useUser();
   const { webUserId } = useWebAuth();
   const { requirePin } = usePin();
-  const { formatPrice, convertFromRub, convertToRub, symbol, currencyCode, baseCurrency } = useCurrency();
+  const { formatPrice, convertFromRub, convertToRub, symbol, currencyCode, baseCurrency, rates } = useCurrency();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('TRADE');
   const [tradeType, setTradeType] = useState<'futures' | 'spot'>(initialTradeType ?? 'futures');
@@ -80,6 +85,9 @@ const TradingPage: React.FC<TradingPageProps> = ({
   const [duration, setDuration] = useState<number>(30);
   const [side, setSide] = useState<Side>('UP');
   const [livePrice, setLivePrice] = useState(asset?.price ?? 0);
+  /** Актуальность котировки с API (шапка, стакан, FX); обновляется опросом цены. */
+  const [quoteUnavailable, setQuoteUnavailable] = useState(asset?.priceUnavailable ?? false);
+  const [displayChange24h, setDisplayChange24h] = useState(asset?.change24h ?? 0);
   const [showAssetSearch, setShowAssetSearch] = useState(false);
 
   const prevLivePriceRef = useRef<number | null>(null);
@@ -102,12 +110,17 @@ const TradingPage: React.FC<TradingPageProps> = ({
   const holdingAmount = currentHolding?.amount ?? 0;
 
   useEffect(() => {
-    if (initialTradeType) setTradeType(initialTradeType);
+    if (!asset) return;
+    if (asset.category === 'forex') {
+      setTradeType('futures');
+    } else if (initialTradeType) {
+      setTradeType(initialTradeType);
+    }
     if (initialSpotAction) setSpotAction(initialSpotAction);
-    if (initialSpotAction === 'sell' && asset && currentHolding) {
+    if (initialSpotAction === 'sell' && currentHolding) {
       setSpotQuantity(String(currentHolding.amount));
     }
-  }, [initialTradeType, initialSpotAction, asset?.ticker, currentHolding?.amount]);
+  }, [initialTradeType, initialSpotAction, asset, currentHolding?.amount]);
 
   /** Дефолт суммы спот при смене валюты баланса (синхронизация с бэком или смена в настройках) */
   useEffect(() => {
@@ -117,11 +130,6 @@ const TradingPage: React.FC<TradingPageProps> = ({
 
   useEffect(() => { setChartLoaded(false); }, [asset?.ticker]);
 
-  if (!asset) return <div className="p-10 text-center text-neutral-500">{t('asset_not_selected')}</div>;
-
-  const quote = (currencyCode || 'USD').toUpperCase();
-  const pairLabel = `${asset.ticker} ${quote}`;
-
   // Живая цена в шапке - обновляем из API каждые 10 секунд
   useEffect(() => {
     if (!asset) return;
@@ -129,9 +137,14 @@ const TradingPage: React.FC<TradingPageProps> = ({
     const updatePrice = async () => {
       try {
         const prices = await fetchAssetPricesInRub([asset.ticker]);
-        if (prices[asset.ticker]) {
-          const next = prices[asset.ticker].price;
+        const row = prices[asset.ticker];
+        if (row) {
+          const next = row.price;
           const prev = prevLivePriceRef.current;
+          setQuoteUnavailable(row.unavailable === true);
+          if (row.change24h != null && Number.isFinite(row.change24h)) {
+            setDisplayChange24h(row.change24h);
+          }
 
           if (prev == null) {
             prevLivePriceRef.current = next;
@@ -166,7 +179,9 @@ const TradingPage: React.FC<TradingPageProps> = ({
     prevLivePriceRef.current = null;
     setPriceDirection('flat');
     setLivePrice(asset.price);
-    
+    setQuoteUnavailable(asset.priceUnavailable ?? false);
+    setDisplayChange24h(asset.change24h ?? 0);
+
     // Обновляем цену каждые 10 секунд
     updatePrice();
     const t = setInterval(updatePrice, 10000);
@@ -179,20 +194,34 @@ const TradingPage: React.FC<TradingPageProps> = ({
     };
   }, []);
 
-  // Живой стакан: обновляем на основе реальной цены
+  // Живой стакан: обновляем на основе реальной цены (FOREX — уже́ узкие уровни относительно цены)
   useEffect(() => {
     if (livePrice <= 0) return;
-    
+
     setOrderBookBase(livePrice);
+    const rel = asset?.category === 'forex' ? 0.00008 : 0.0003;
     const generate = (b: number, type: 'ask' | 'bid') =>
       Array.from({ length: 8 }).map((_, i) => {
-        const diff = b * (0.0003 * (i + 1) + Math.random() * 0.0002);
+        const diff = b * (rel * (i + 1) + Math.random() * rel * 0.65);
         const price = type === 'ask' ? b + diff : b - diff;
         return { price, size: 0.5 + Math.random() * 2 };
       });
     setAsks(generate(livePrice, 'ask').reverse());
     setBids(generate(livePrice, 'bid'));
-  }, [livePrice]);
+  }, [livePrice, asset?.category]);
+
+  if (!asset) return <div className="p-10 text-center text-neutral-500">{t('asset_not_selected')}</div>;
+
+  const isForex = asset.category === 'forex';
+  const rubPerUsd = rates?.usd?.rub;
+  const midPriceRub = livePrice > 0 ? livePrice : asset.price;
+  const showAsFxQuote = isForex && rubPerUsd != null && rubPerUsd > 0 && !quoteUnavailable;
+
+  const quote = (currencyCode || 'USD').toUpperCase();
+  const pairLabel =
+    isForex && asset.ticker.length === 6
+      ? `${asset.ticker.slice(0, 3)}/${asset.ticker.slice(3)}`
+      : `${asset.ticker} ${quote}`;
 
   const handlePreTrade = () => {
       if (tradingBlocked) {
@@ -302,7 +331,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
           <button
             type="button"
             onClick={() => { Haptic.tap(); setShowAssetSearch(true); }}
-            className="text-lg font-bold text-textPrimary tracking-wide hover:text-neon transition-colors active:scale-[0.99] text-left"
+            className="text-lg font-semibold text-textPrimary tracking-tight hover:text-neon transition-colors active:scale-[0.99] text-left"
             aria-label={t('search_pair')}
           >
             {pairLabel}
@@ -311,7 +340,11 @@ const TradingPage: React.FC<TradingPageProps> = ({
         onBack={onBack}
         right={
           <span className={`text-sm font-mono font-bold ${priceDirection === 'up' ? 'text-up' : priceDirection === 'down' ? 'text-down' : 'text-textPrimary'}`}>
-            {asset.priceUnavailable ? '—' : formatPrice(livePrice)} {symbol}
+            {quoteUnavailable
+              ? '—'
+              : showAsFxQuote
+                ? formatFxRateQuote(midPriceRub / rubPerUsd!)
+                : `${formatPrice(livePrice)} ${symbol}`}
           </span>
         }
       />
@@ -384,7 +417,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                 <iframe
                   title={t('chart')}
                   className="w-full h-full rounded-card border-0"
-                  src={getTradingViewChartUrl(getTradingViewSymbol(asset.ticker))}
+                  src={getTradingViewChartUrl(getTradingViewSymbolForAsset(asset))}
                   scrolling="no"
                   style={{ border: 0 }}
                   onLoad={() => setChartLoaded(true)}
@@ -404,7 +437,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                 </div>
                 <div>
                   <span className="text-neutral-500">{t('ticker')}</span>
-                  <p className="font-mono font-bold text-neon">{getTradingViewSymbolLabel(asset.ticker)}</p>
+                  <p className="font-mono font-bold text-neon">{getTradingViewSymbolLabelForAsset(asset)}</p>
                 </div>
                 <div>
                   <span className="text-neutral-500">{t('min_deal')}</span>
@@ -412,8 +445,8 @@ const TradingPage: React.FC<TradingPageProps> = ({
                 </div>
                 <div>
                   <span className="text-neutral-500">{t('change_24h_val')}</span>
-                  <p className={`font-mono font-semibold ${(asset.change24h ?? 0) >= 0 ? 'text-up' : 'text-down'}`}>
-                    {(asset.change24h ?? 0) >= 0 ? '+' : ''}{(asset.change24h ?? 0).toFixed(2)}%
+                  <p className={`font-mono font-semibold ${(displayChange24h ?? 0) >= 0 ? 'text-up' : 'text-down'}`}>
+                    {(displayChange24h ?? 0) >= 0 ? '+' : ''}{(displayChange24h ?? 0).toFixed(2)}%
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -429,7 +462,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
 
         {/* VIEW: ПРАВИЛА ТОРГОВЛИ */}
         <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === 'RULES' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
-          <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 pb-28">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 pb-4">
             <div className="flex items-center gap-2 mb-4">
               <FileText size={18} className="text-neon/80" />
               <h2 className="text-base font-bold text-white">{t('rules_title')}</h2>
@@ -483,23 +516,31 @@ const TradingPage: React.FC<TradingPageProps> = ({
             
             {/* LEFT COLUMN: Controls (60%) — воздух в заголовках, блоки через gap-6 */}
             <div className="w-[60%] h-full flex flex-col p-4 border-r border-border overflow-y-auto no-scrollbar bg-background gap-4">
-                {/* Фьючерсы / Спот */}
-                <div className="flex bg-card rounded-lg p-1 border border-border">
+                {/* Фьючерсы / Спот (для Forex только фьючерсы) */}
+                {!isForex && (
+                  <div className="flex bg-card rounded-lg p-1 border border-border">
                     <button
-                        type="button"
-                        onClick={() => { Haptic.tap(); setTradeType('futures'); }}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${tradeType === 'futures' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
+                      type="button"
+                      onClick={() => {
+                        Haptic.tap();
+                        setTradeType('futures');
+                      }}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${tradeType === 'futures' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
                     >
-                        {t('trade_type_futures')}
+                      {t('trade_type_futures')}
                     </button>
                     <button
-                        type="button"
-                        onClick={() => { Haptic.tap(); setTradeType('spot'); }}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${tradeType === 'spot' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
+                      type="button"
+                      onClick={() => {
+                        Haptic.tap();
+                        setTradeType('spot');
+                      }}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${tradeType === 'spot' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
                     >
-                        {t('trade_type_spot')}
+                      {t('trade_type_spot')}
                     </button>
-                </div>
+                  </div>
+                )}
 
                 {/* SPOT: Купить / Продать — в стиле фьючерсов */}
                 {tradeType === 'spot' && (
@@ -545,7 +586,7 @@ const TradingPage: React.FC<TradingPageProps> = ({
                                             type="text"
                                             inputMode="decimal"
                                             value={spotAmount}
-                                            onChange={(e) => setSpotAmountRub(e.target.value)}
+                                            onChange={(e) => setSpotAmount(e.target.value)}
                                             className="w-full bg-transparent text-white font-mono text-lg font-bold outline-none placeholder-neutral-700"
                                             placeholder="0"
                                         />
@@ -792,7 +833,9 @@ const TradingPage: React.FC<TradingPageProps> = ({
                 <div className="flex flex-col-reverse justify-end flex-1 overflow-hidden pb-1 space-y-reverse space-y-[1px]">
                     {asks.map((ask, i) => (
                         <div key={`ask-${i}`} className="flex justify-between px-2 py-[2px] relative group cursor-pointer hover-row">
-                            <span className="text-[10px] font-mono text-red-400 relative z-10">{formatPrice(ask.price)}</span>
+                            <span className="text-[10px] font-mono text-red-400 relative z-10">
+                              {showAsFxQuote ? formatFxRateQuote(ask.price / rubPerUsd!) : formatPrice(ask.price)}
+                            </span>
                             <span className="text-[10px] font-mono text-neutral-500 relative z-10">{ask.size.toFixed(3)}</span>
                             <div className="absolute right-0 top-0 bottom-0 bg-red-500/10 z-0" style={{ width: `${Math.random() * 60}%` }}></div>
                         </div>
@@ -808,16 +851,26 @@ const TradingPage: React.FC<TradingPageProps> = ({
                     <span className={`text-sm font-mono font-bold ${
                       priceDirection === 'up' ? 'text-up' : priceDirection === 'down' ? 'text-down' : 'text-white'
                     }`}>
-                        {asset.priceUnavailable ? '—' : formatPrice(orderBookBase > 0 ? orderBookBase : livePrice)}
+                        {quoteUnavailable
+                          ? '—'
+                          : showAsFxQuote
+                            ? formatFxRateQuote(
+                                (orderBookBase > 0 ? orderBookBase : livePrice) / rubPerUsd!
+                              )
+                            : formatPrice(orderBookBase > 0 ? orderBookBase : livePrice)}
                     </span>
-                    <span className="text-[8px] text-neutral-500">{currencyCode}</span>
+                    <span className="text-[8px] text-neutral-500">
+                      {showAsFxQuote ? 'FX' : currencyCode}
+                    </span>
                 </div>
 
                 {/* Bids (Green) */}
                 <div className="flex flex-col flex-1 overflow-hidden pt-1 space-y-[1px]">
                      {bids.map((bid, i) => (
                         <div key={`bid-${i}`} className="flex justify-between px-2 py-[2px] relative group cursor-pointer hover-row">
-                            <span className="text-[10px] font-mono text-green-400 relative z-10">{formatPrice(bid.price)}</span>
+                            <span className="text-[10px] font-mono text-green-400 relative z-10">
+                              {showAsFxQuote ? formatFxRateQuote(bid.price / rubPerUsd!) : formatPrice(bid.price)}
+                            </span>
                             <span className="text-[10px] font-mono text-neutral-500 relative z-10">{bid.size.toFixed(3)}</span>
                             <div className="absolute right-0 top-0 bottom-0 bg-green-500/10 z-0" style={{ width: `${Math.random() * 60}%` }}></div>
                         </div>

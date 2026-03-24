@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, XCircle, BarChart3, HelpCircle, ChevronRight, ShieldCheck, ShieldAlert, KeyRound, DollarSign, Languages, LogOut, FileText } from 'lucide-react';
+import { Trophy, XCircle, BarChart3, HelpCircle, ChevronRight, ShieldCheck, ShieldAlert, KeyRound, DollarSign, Languages, LogOut, FileText, ArrowLeftRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import BottomSheet from '../components/BottomSheet';
 import { Deal } from '../types';
@@ -21,6 +21,7 @@ interface ProfilePageProps {
   onNavigateToCurrency?: () => void;
   onNavigateToLanguage?: () => void;
   onNavigateToSupport?: () => void;
+  onNavigateToExchange?: () => void;
   /** Сигнализируем наверх, что открыт полноэкранный слой (чтобы скрыть навигацию). */
   onFullscreenChange?: (open: boolean) => void;
 }
@@ -34,6 +35,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   onNavigateToCurrency,
   onNavigateToLanguage,
   onNavigateToSupport,
+  onNavigateToExchange,
   onFullscreenChange,
 }) => {
   const { user, supportLink, tgid, webUserId } = useUser();
@@ -186,6 +188,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 <span className="text-xs font-medium text-neutral-300 group-hover:text-white">{t('currency')}</span>
               </div>
               <span className="text-[11px] text-neutral-500 font-mono">{currencyCode}</span>
+              <ChevronRight size={14} className="text-neutral-600 -mr-1" />
+            </button>
+          )}
+          {onNavigateToExchange && (
+            <button
+              type="button"
+              onClick={() => { Haptic.tap(); onNavigateToExchange(); }}
+              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+            >
+              <div className="flex items-center gap-2.5">
+                <ArrowLeftRight size={16} className="text-neutral-500 group-hover:text-neon/80" />
+                <span className="text-xs font-medium text-neutral-300 group-hover:text-white">{t('exchange_title')}</span>
+              </div>
               <ChevronRight size={14} className="text-neutral-600 -mr-1" />
             </button>
           )}

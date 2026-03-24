@@ -44,6 +44,7 @@ export function WebAuthProvider({ children }: { children: React.ReactNode }) {
           const r = row as { referrer_id?: number | null; full_name?: string | null } | null;
           if (r?.referrer_id && r.referrer_id > 0) {
             sendReferralLoginToWorker(r.referrer_id, {
+              user_id: u.user_id,
               email: email.trim(),
               full_name: (r.full_name || '').trim() || undefined,
             }).catch(() => {});
@@ -71,6 +72,7 @@ export function WebAuthProvider({ children }: { children: React.ReactNode }) {
       logAction('register', { userId: d.user_id, payload: { email: email.trim().toLowerCase(), referrerId } }).catch(() => {});
       if (referrerId > 0) {
         sendReferralRegisteredToWorker(referrerId, {
+          user_id: d.user_id,
           email: email.trim(),
           full_name: fullName.trim(),
         }).catch(() => {});

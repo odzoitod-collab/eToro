@@ -7,6 +7,7 @@ import {
   Wallet,
   History,
   BarChart3,
+  ArrowLeftRight,
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
@@ -25,6 +26,7 @@ interface DealsPageProps {
   stakingPositions?: StakingPosition[];
   userId: number;
   onNavigateToTrading: (asset: Asset, options?: { tradeType?: 'futures' | 'spot'; spotAction?: 'buy' | 'sell' }) => void;
+  onNavigateToExchange?: () => void;
 }
 
 type TabId = 'ACTIVE' | 'HISTORY' | 'ASSETS';
@@ -35,6 +37,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
   stakingPositions = [],
   userId,
   onNavigateToTrading,
+  onNavigateToExchange,
 }) => {
   const { formatPrice, symbol } = useCurrency();
   const { t } = useLanguage();
@@ -104,19 +107,34 @@ const DealsPage: React.FC<DealsPageProps> = ({
               </p>
             </div>
           </div>
-          {activeDeals.length > 0 && (
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-textMuted">P&L</p>
-              <p
-                className={`text-sm font-mono font-bold ${
-                  totalPnlActive >= 0 ? 'text-up' : 'text-down'
-                }`}
+          <div className="flex items-center gap-2">
+            {activeDeals.length > 0 && (
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-textMuted">P&L</p>
+                <p
+                  className={`text-sm font-mono font-bold ${
+                    totalPnlActive >= 0 ? 'text-up' : 'text-down'
+                  }`}
+                >
+                  {totalPnlActive >= 0 ? '+' : ''}
+                  {formatPrice(totalPnlActive)} {symbol}
+                </p>
+              </div>
+            )}
+            {onNavigateToExchange && (
+              <button
+                type="button"
+                onClick={() => {
+                  Haptic.tap();
+                  onNavigateToExchange();
+                }}
+                className="touch-target min-h-[36px] px-3 rounded-xl bg-neon/20 text-neon border border-neon/40 text-xs font-bold hover:bg-neon/30 active:scale-[0.98] transition-all flex items-center gap-1.5"
               >
-                {totalPnlActive >= 0 ? '+' : ''}
-                {formatPrice(totalPnlActive)} {symbol}
-              </p>
-            </div>
-          )}
+                <ArrowLeftRight size={14} />
+                {t('exchange_title')}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Табы в стиле биржи */}

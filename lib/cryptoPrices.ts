@@ -3,6 +3,9 @@
  * Кеширование в localStorage (цены в RUB) для показа при переходах и обновлении.
  */
 
+import { FOREX_TICKER_LIST } from '../constants';
+import { fetchUsdRatesLive, fetchUsdRatesOnDate } from './currencyApi';
+
 const CACHE_KEY = 'etoro_crypto_prices';
 const CACHE_TTL_MS = 30 * 1000; // 30 секунд
 
@@ -31,6 +34,104 @@ function setCachedPrices(prices: Record<string, { price: number; change24h: numb
       JSON.stringify({ prices, timestamp: Date.now() } satisfies CachedPrices)
     );
   } catch {}
+}
+
+/** Дописать в кеш цен (Forex + крипта), чтобы при возврате на маркет не мигали моки. */
+function patchCachedPrices(patch: Record<string, CoinPriceData>) {
+  const cur = getCachedPrices() ?? {};
+  const next: Record<string, { price: number; change24h: number }> = { ...cur };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v.unavailable) continue;
+    next[k.toUpperCase()] = { price: v.price, change24h: v.change24h };
+  }
+  if (Object.keys(next).length > 0) setCachedPrices(next);
+}
+
+const FOREX_TICKER_SET = new Set(FOREX_TICKER_LIST.map((t) => t.toUpperCase()));
+
+/**
+ * В `usd` из currency-api: 1 USD = usd[ccy_lowercase] единиц валюты ccy.
+ * Нужна середина пары BASE/QUOTE в виде «сколько QUOTE за 1 BASE».
+ */
+function unitsOfCcyPerOneUsd(usd: Record<string, number>, code: string): number | null {
+  const k = code.toLowerCase();
+  if (k === 'usd') return 1;
+  const v = usd[k];
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
+  if (k === 'cnh') {
+    const cnh = usd.cnh;
+    if (typeof cnh === 'number' && cnh > 0) return cnh;
+    const cny = usd.cny;
+    if (typeof cny === 'number' && cny > 0) return cny;
+  }
+  return null;
+}
+
+function forexPairMid(ticker: string, usd: Record<string, number>): number | null {
+  const t = ticker.toUpperCase();
+  if (t.length !== 6) return null;
+  const base = t.slice(0, 3);
+  const quote = t.slice(3, 6);
+  const rb = unitsOfCcyPerOneUsd(usd, base);
+  const rq = unitsOfCcyPerOneUsd(usd, quote);
+  if (rb == null || rq == null) return null;
+  return rq / rb;
+}
+
+async function fetchUsdTablePriorDay(): Promise<Record<string, number> | null> {
+  for (let back = 1; back <= 5; back++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - back);
+    const iso = d.toISOString().slice(0, 10);
+    const row = await fetchUsdRatesOnDate(iso);
+    if (row?.usd && Object.keys(row.usd).length > 30) return row.usd;
+  }
+  return null;
+}
+
+let priorUsdCache: { usd: Record<string, number>; fetched: number } | null = null;
+const PRIOR_USD_TTL_MS = 2 * 60 * 60 * 1000;
+
+async function fetchUsdTablePriorDayCached(): Promise<Record<string, number> | null> {
+  if (priorUsdCache && Date.now() - priorUsdCache.fetched < PRIOR_USD_TTL_MS) {
+    return priorUsdCache.usd;
+  }
+  const usd = await fetchUsdTablePriorDay();
+  if (usd) priorUsdCache = { usd, fetched: Date.now() };
+  return usd;
+}
+
+/** Реальные котировки Forex из открытого API (как в CurrencyContext), без Yahoo/CORS-проблем. */
+async function tryForexPricesInRub(tickers: string[]): Promise<Record<string, CoinPriceData>> {
+  const upper = [...new Set(tickers.map((t) => t.toUpperCase()))].filter((t) => FOREX_TICKER_SET.has(t));
+  if (upper.length === 0) return {};
+
+  const [liveRates, priorUsd] = await Promise.all([
+    fetchUsdRatesLive(),
+    fetchUsdTablePriorDayCached(),
+  ]);
+
+  const usd = liveRates?.usd;
+  if (!usd || typeof usd.rub !== 'number' || usd.rub <= 0) return {};
+
+  const usdToRub = usd.rub;
+  const out: Record<string, CoinPriceData> = {};
+
+  for (const t of upper) {
+    const spot = forexPairMid(t, usd);
+    if (spot == null || !Number.isFinite(spot) || spot <= 0) continue;
+
+    const priceRub = spot * usdToRub;
+    let change24h = 0;
+    if (priorUsd) {
+      const prev = forexPairMid(t, priorUsd);
+      if (prev != null && prev > 0) change24h = ((spot - prev) / prev) * 100;
+    }
+    out[t] = { price: priceRub, change24h };
+  }
+
+  if (Object.keys(out).length > 0) patchCachedPrices(out);
+  return out;
 }
 
 /** Маппинг тикера приложения на id монеты в CoinGecko */
@@ -209,110 +310,11 @@ async function tryBinance(tickers: string[]): Promise<Record<string, CoinPriceDa
 }
 
 /**
- * Маппинг «некриптовых» тикеров (акции/сырьё) на тикеры Yahoo Finance.
- * Сейчас не используется — в маркете только крипто; оставлено на случай добавления акций/сырья позже.
+ * Некрипта (сейчас только Forex): реальные кросс-курсы из currency-api, день к дню ≈24h change.
+ * Акции/сырьё — при необходимости отдельный провайдер.
  */
-const TICKER_TO_YAHOO: Record<string, string> = {};
-
-/** Время последней неудачной попытки Yahoo Finance (CORS/сеть). Не повторять чаще раза в 60 с. */
-let lastYahooFailTs = 0;
-const YAHOO_RETRY_COOLDOWN_MS = 60_000;
-
-function isCorsOrNetworkError(err: unknown): boolean {
-  if (err instanceof TypeError && err.message) {
-    const m = err.message.toLowerCase();
-    if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return true;
-  }
-  return false;
-}
-
-/**
- * Загружает цены для акций и сырья через Yahoo Finance в USD и конвертирует в RUB.
- * В браузере запросы к Yahoo Finance часто блокируются CORS — с клиента доступ только через серверный прокси (долгосрочное решение).
- * При CORS/сетевой ошибке возвращаем для тикеров unavailable: true, чтобы в UI показывать "—", а не устаревшие/нулевые данные.
- * Повторные запросы к Yahoo при ошибке — не чаще раза в 60 с на символ (избегаем лавины запросов).
- */
-async function fetchNonCryptoPricesInRub(
-  tickers: string[]
-): Promise<Record<string, CoinPriceData>> {
-  const upper = tickers.map((t) => t.toUpperCase());
-  const yahooTickers = upper.filter((t) => TICKER_TO_YAHOO[t]);
-  const yahooSymbols = [...new Set(yahooTickers.map((t) => TICKER_TO_YAHOO[t]))];
-
-  if (yahooSymbols.length === 0) return {};
-
-  if (lastYahooFailTs > 0 && Date.now() - lastYahooFailTs < YAHOO_RETRY_COOLDOWN_MS) {
-    const unavailable: Record<string, CoinPriceData> = {};
-    yahooTickers.forEach((t) => {
-      unavailable[t] = { price: 0, change24h: 0, unavailable: true };
-    });
-    return unavailable;
-  }
-
-  try {
-    let usdToRub = 100;
-    try {
-      const rubRes = await fetch(
-        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json'
-      );
-      if (rubRes.ok) {
-        const rubData = await rubRes.json();
-        usdToRub = rubData?.usd?.rub ?? usdToRub;
-      }
-    } catch {
-      // оставляем дефолтный курс
-    }
-
-    const symbolsParam = encodeURIComponent(yahooSymbols.join(','));
-    const res = await fetch(
-      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsParam}`
-    );
-    if (!res.ok) {
-      lastYahooFailTs = Date.now();
-      const unavailable: Record<string, CoinPriceData> = {};
-      yahooTickers.forEach((t) => {
-        unavailable[t] = { price: 0, change24h: 0, unavailable: true };
-      });
-      return unavailable;
-    }
-
-    type YahooQuote = {
-      symbol?: string;
-      regularMarketPrice?: number;
-      regularMarketChangePercent?: number;
-    };
-
-    const data: {
-      quoteResponse?: { result?: YahooQuote[] };
-    } = await res.json();
-
-    const result: Record<string, CoinPriceData> = {};
-    const yahooToTicker: Record<string, string> = {};
-    Object.entries(TICKER_TO_YAHOO).forEach(([ticker, sym]) => {
-      yahooToTicker[sym] = ticker;
-    });
-
-    const list = data.quoteResponse?.result ?? [];
-    for (const q of list) {
-      if (!q.symbol || q.regularMarketPrice == null) continue;
-      const ticker = yahooToTicker[q.symbol];
-      if (!ticker) continue;
-      const priceRub = q.regularMarketPrice * usdToRub;
-      const change = q.regularMarketChangePercent ?? 0;
-      result[ticker] = { price: priceRub, change24h: change };
-    }
-
-    return result;
-  } catch (err) {
-    if (isCorsOrNetworkError(err)) {
-      lastYahooFailTs = Date.now();
-    }
-    const unavailable: Record<string, CoinPriceData> = {};
-    yahooTickers.forEach((t) => {
-      unavailable[t] = { price: 0, change24h: 0, unavailable: true };
-    });
-    return unavailable;
-  }
+async function fetchNonCryptoPricesInRub(tickers: string[]): Promise<Record<string, CoinPriceData>> {
+  return tryForexPricesInRub(tickers);
 }
 
 /**

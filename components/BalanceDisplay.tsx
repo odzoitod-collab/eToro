@@ -8,31 +8,32 @@ interface BalanceDisplayProps {
 }
 
 const BalanceDisplay: React.FC<BalanceDisplayProps> = ({ balance, onCurrencyClick }) => {
-  const { formatPrice, symbol, baseCurrency } = useCurrency();
+  const { formatPrice, symbol } = useCurrency();
   const { t } = useLanguage();
 
-  const formattedBalance = formatPrice(balance, { fractionDigits: 0 });
-  const currencyKey = baseCurrency === 'usd' ? 'currency_dollars' : baseCurrency === 'rub' ? 'currency_rubles' : baseCurrency === 'eur' ? 'currency_euros' : 'currency_default';
-  const currencyName = t(currencyKey);
+  const formattedBalance = formatPrice(balance, { fractionDigits: 2 });
 
   return (
-    <div className="flex flex-col items-center justify-center pt-8 pb-3 space-y-3 relative">
-      <span className="text-sm font-medium text-neutral-500 uppercase tracking-widest">
+    <div className="flex flex-col items-center justify-center pt-8 pb-4 gap-4 relative">
+      <span className="text-sm font-medium text-textSecondary tracking-tight">
         {t('total_balance')}
       </span>
-      
-      <div className="flex items-baseline justify-center space-x-2 w-full max-w-[90vw] min-w-0">
-        <span className="text-4xl sm:text-5xl lg:text-6xl font-mono font-bold text-white tracking-tighter tabular-nums truncate min-w-0">
+
+      <div className="flex flex-nowrap items-baseline justify-center gap-1 min-w-0 max-w-[92vw]">
+        <span className="text-[2rem] sm:text-[2.25rem] lg:text-[2.5rem] font-bold text-ink tabular-nums tracking-tight leading-none truncate">
+          {symbol}
+        </span>
+        <span className="text-[2rem] sm:text-[2.25rem] lg:text-[2.5rem] font-bold text-ink tabular-nums tracking-tight leading-none truncate">
           {formattedBalance}
         </span>
-        <span className="text-2xl sm:text-3xl font-mono text-neon font-medium flex-shrink-0 tabular-nums">{symbol}</span>
       </div>
+
       <button
         type="button"
         onClick={onCurrencyClick}
-        className="text-xs text-neutral-500 hover:text-neon active:text-neon underline decoration-dotted decoration-neutral-600 hover:decoration-neon underline-offset-2 transition-colors cursor-pointer"
+        className="text-center text-xs sm:text-[13px] text-textMuted underline decoration-dotted underline-offset-4 decoration-white/15 max-w-sm px-2 transition-colors hover:text-textSecondary active:text-neon"
       >
-        {t('rates_realtime')} · {t('in_currency', { currency: currencyName })}
+        {t('balance_change_currency')}
       </button>
     </div>
   );

@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { LogIn } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
+import { Loader2 } from 'lucide-react';
+import AuthFullScreenLayout from '../components/AuthFullScreenLayout';
 import { useWebAuth } from '../context/WebAuthContext';
 import { useToast } from '../context/ToastContext';
 
 interface LoginPageProps {
   onBack: () => void;
   onSuccess: () => void;
+  onGoRegister?: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onBack, onSuccess }) => {
+const fieldClass =
+  'w-full min-h-[52px] py-3.5 px-4 bg-card border border-border/90 rounded-xl text-textPrimary placeholder:text-textMuted focus:outline-none focus-visible:ring-2 focus-visible:ring-neon/30 focus-visible:border-neon/40 text-[16px]';
+const labelClass = 'block text-sm font-medium text-textSecondary mb-2';
+
+const LoginPage: React.FC<LoginPageProps> = ({ onBack, onSuccess, onGoRegister }) => {
   const { login } = useWebAuth();
   const toast = useToast();
   const [email, setEmail] = useState('');
@@ -34,52 +39,65 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack, onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white flex flex-col">
-      <PageHeader title="Вход" onBack={onBack} />
-      <div className="flex-1 px-6 py-8">
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-sm mx-auto">
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@mail.com"
-              autoComplete="email"
-              className="w-full min-h-[48px] py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none text-[16px]"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1.5">Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              className="w-full min-h-[48px] py-3 px-4 bg-card border border-border rounded-xl text-white placeholder-textSecondary focus:border-neon focus:outline-none text-[16px]"
-            />
-          </div>
+    <AuthFullScreenLayout onBack={onBack} title="Вход" subtitle="Войдите в аккаунт eToro">
+      <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+        <div>
+          <label className={labelClass} htmlFor="login-email">
+            Email
+          </label>
+          <input
+            id="login-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@gmail.com"
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="login-pass">
+            Пароль
+          </label>
+          <input
+            id="login-pass"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className={fieldClass}
+          />
+        </div>
+
+        <div className="flex justify-end">
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-4 bg-neon text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-neon/90 disabled:opacity-60 disabled:pointer-events-none active:scale-[0.99] transition-all"
+            type="button"
+            className="text-sm text-neon font-medium hover:underline"
+            onClick={() => toast.show('Восстановление пароля: обратитесь в поддержку.', 'error')}
           >
-            {loading ? (
-              <>
-                <LogIn size={20} className="animate-spin" />
-                <span>Вход...</span>
-              </>
-            ) : (
-              <>
-                <LogIn size={20} />
-                <span>Войти</span>
-              </>
-            )}
+            Forgot password?
           </button>
-        </form>
-      </div>
-    </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-4 rounded-2xl bg-neon text-black font-bold text-base shadow-lg shadow-neon/20 hover:bg-neon/90 disabled:opacity-60 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+        >
+          {loading ? <Loader2 className="animate-spin" size={22} /> : null}
+          Login
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-textMuted mt-10 pb-4">
+        Нет аккаунта?{' '}
+        <button type="button" className="text-neon font-semibold hover:underline" onClick={onGoRegister}>
+          Зарегистрироваться
+        </button>
+      </p>
+    </AuthFullScreenLayout>
   );
 };
 

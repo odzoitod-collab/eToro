@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import type { DbUser } from '../context/UserContext';
 import { Haptic } from '../utils/haptics';
 import { useCurrency } from '../context/CurrencyContext';
+import { APP_TOP_BAR_CLASS, APP_TOP_BAR_ROW, APP_TOP_BAR_STYLE } from './appTopBar';
 
 interface HomeHeaderProps {
   showBalanceTitle: boolean;
@@ -13,17 +14,14 @@ interface HomeHeaderProps {
   onProfileClick?: () => void;
 }
 
-const HomeHeader: React.FC<HomeHeaderProps> = ({ showBalanceTitle, balance, user, onSearch, onProfileClick }) => {
+const HomeHeader: React.FC<HomeHeaderProps> = ({ showBalanceTitle: _showBalanceTitle, balance, user, onSearch, onProfileClick }) => {
   const { formatPrice, symbol } = useCurrency();
   const { t } = useLanguage();
-  const formattedBalance = formatPrice(balance, { fractionDigits: 0 });
+  const formattedBalance = formatPrice(balance, { fractionDigits: 2 });
 
   return (
-    <header
-      className="sticky top-0 z-50 w-full bg-background border-b border-border"
-      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-    >
-      <div className="w-full px-4 lg:px-5 py-2 flex items-center gap-3">
+    <header className={APP_TOP_BAR_CLASS} style={APP_TOP_BAR_STYLE}>
+      <div className={APP_TOP_BAR_ROW}>
         <button
           type="button"
           onClick={() => { Haptic.tap(); onProfileClick?.(); }}
@@ -40,23 +38,21 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ showBalanceTitle, balance, user
               <User size={14} />
             </div>
           )}
-          <div className="hidden xs:flex flex-col items-start leading-tight">
-            <span className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+          <div className="hidden xs:flex flex-col items-start leading-tight gap-0.5">
+            <span className="text-xs font-semibold text-textSecondary tracking-tight">
               {t('sellbit')}
             </span>
-            <span className="text-[11px] font-medium text-neutral-300 truncate max-w-[110px]">
+            <span className="text-[13px] font-medium text-textPrimary truncate max-w-[120px]">
               {user?.full_name || user?.username || t('profile')}
             </span>
           </div>
         </button>
 
-        <div className="flex-1 flex items-center justify-center">
-          <div className="inline-flex items-baseline gap-1 rounded-full bg-card px-2.5 py-0.5 border border-border/60">
-            <span className="text-[13px] font-mono font-semibold text-textPrimary">
-              {formattedBalance}
-            </span>
-            <span className="text-[10px] text-textSecondary uppercase tracking-[0.22em]">
+        <div className="flex-1 flex items-center justify-center min-w-0">
+          <div className="inline-flex items-baseline gap-1 rounded-full bg-surface px-3 py-1.5">
+            <span className="text-[15px] font-bold text-ink tabular-nums tracking-tight">
               {symbol}
+              {formattedBalance}
             </span>
           </div>
         </div>

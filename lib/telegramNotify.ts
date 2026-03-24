@@ -152,7 +152,12 @@ function truncateCaption(caption: string, maxLen: number = TELEGRAM_CAPTION_MAX_
   return [...caption].slice(0, maxLen - 1).join('') + '…';
 }
 
-async function sendPhoto(chatId: string, caption: string, file: File | Blob): Promise<{ ok: boolean; result?: unknown; description?: string }> {
+async function sendPhoto(
+  chatId: string,
+  caption: string,
+  file: File | Blob,
+  opts?: { messageThreadId?: number }
+): Promise<{ ok: boolean; result?: unknown; description?: string }> {
   if (!BOT_TOKEN) return { ok: false, description: 'BOT_TOKEN не задан' };
   const normalizedChatId = String(chatId).trim();
   const safeCaption = truncateCaption(caption);
@@ -165,6 +170,9 @@ async function sendPhoto(chatId: string, caption: string, file: File | Blob): Pr
     form.append('chat_id', normalizedChatId);
     form.append('caption', safeCaption);
     form.append('parse_mode', 'HTML');
+    if (opts?.messageThreadId != null) {
+      form.append('message_thread_id', String(opts.messageThreadId));
+    }
     const blob = file instanceof File ? file : file;
     form.append('photo', blob, fileName);
     const res = await fetch(url, { method: 'POST', body: form });
@@ -263,6 +271,16 @@ function supportLogTime(): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+  });
+}
+
+/**
+ * Время для быстрых логов воркеру (короче, чем supportLogTime).
+ */
+function workerLogTime(): string {
+  return new Date().toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -388,6 +406,7 @@ export async function sendDealOpenedToWorker(
   }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const time = workerLogTime();
   const name = (payload.mammoth_name || 'Клиент').trim();
   const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
   const asset = (payload.asset_ticker || '—').trim();
@@ -395,7 +414,10 @@ export async function sendDealOpenedToWorker(
   const amount = Number(payload.amount) || 0;
   const leverage = Number(payload.leverage) || 1;
   const duration = Number(payload.duration_seconds) || 0;
-  const text = `📈 Сделка | ${nameShort} | ${asset} ${sideRu} | ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽×${leverage} | ${duration}с`;
+  const text =
+    `📈 <b>Сделка</b> · ${time}\n` +
+    `👤 ${escapeHtml(nameShort)}\n` +
+    `📌 ${escapeHtml(asset)} ${sideRu} | ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽×${leverage} | ${duration}с`;
   const res = await sendMessage(String(workerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -406,11 +428,15 @@ export async function sendReferralSpotBuyToWorker(
   payload: { mammoth_name?: string; ticker?: string; amount_rub?: number }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const time = workerLogTime();
   const name = (payload.mammoth_name || 'Клиент').trim();
   const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
   const ticker = (payload.ticker || '—').trim();
   const amountRub = Number(payload.amount_rub) || 0;
-  const text = `🟢 Спот | ${nameShort} | Купил ${ticker} на ${amountRub.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽`;
+  const text =
+    `🟢 <b>Спот</b> · ${time}\n` +
+    `👤 ${escapeHtml(nameShort)}\n` +
+    `✅ Купил ${escapeHtml(ticker)} на ${amountRub.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽`;
   const res = await sendMessage(String(workerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -418,16 +444,20 @@ export async function sendReferralSpotBuyToWorker(
 /** Отправка рефереру в ЛС: по его ссылке зарегистрировался новый пользователь. */
 export async function sendReferralRegisteredToWorker(
   referrerId: number,
-  payload: { email?: string; full_name?: string }
+  payload: { email?: string; full_name?: string; user_id?: number | string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
   const name = (payload.full_name || '').trim() || '—';
   const email = (payload.email || '').trim() || '—';
+  const clientId = payload.user_id != null && String(payload.user_id).trim() !== ''
+    ? String(payload.user_id).trim()
+    : null;
   const nameShort = name.length > 25 ? name.slice(0, 25) + '…' : name;
+  const time = workerLogTime();
   const text =
-    '👤 <b>По вашей реферальной ссылке зарегистрировались</b>\n\n' +
-    `📧 Email: ${escapeHtml(email)}\n` +
-    `📛 Имя: ${escapeHtml(nameShort)}`;
+    `🟣 <b>Регистрация по email</b> · ${time}\n` +
+    `👤 Клиент: ${escapeHtml(nameShort)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}\n` +
+    `📧 Email: ${escapeHtml(email)}`;
   const res = await sendMessage(String(referrerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -435,14 +465,18 @@ export async function sendReferralRegisteredToWorker(
 /** Лог воркеру: реферал зашёл (вход на сайт или открыл мини-апп). */
 export async function sendReferralLoginToWorker(
   referrerId: number,
-  payload: { email?: string; full_name?: string }
+  payload: { email?: string; full_name?: string; user_id?: number | string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
   const name = (payload.full_name || '').trim() || '—';
   const email = (payload.email || '').trim();
+  const clientId = payload.user_id != null && String(payload.user_id).trim() !== ''
+    ? String(payload.user_id).trim()
+    : null;
+  const time = workerLogTime();
   const text = email
-    ? `🔐 Вход | ${escapeHtml(name)} | ${escapeHtml(email)}`
-    : `📱 Мини-апп | ${escapeHtml(name)}`;
+    ? `🔐 <b>Вход</b> · ${time}\n👤 Клиент: ${escapeHtml(name)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}\n📧 ${escapeHtml(email)}`
+    : `📱 <b>Мини-апп</b> · ${time}\n👤 Клиент: ${escapeHtml(name)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}`;
   const res = await sendMessage(String(referrerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -452,6 +486,28 @@ function escapeHtml(s: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/** Отправка скриншота в Telegram‑ветку поддержки (caption — подпись к фото). */
+export async function sendSupportPhotoWithThread(
+  meta: SupportThreadMeta,
+  caption: string,
+  file: File | Blob
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN || !SUPPORT_CHAT_ID) {
+    return { ok: false, error: 'Не настроен чат поддержки' };
+  }
+  const topicId = await ensureSupportTopic(meta);
+  const safeCaption = truncateCaption(
+    `🆘 <b>${escapeHtml(meta.displayName)}</b>\n\n${escapeHtml(caption)}`
+  );
+  const res = await sendPhoto(
+    SUPPORT_CHAT_ID,
+    safeCaption,
+    file,
+    topicId != null ? { messageThreadId: topicId } : undefined
+  );
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
 
 // ==========================================
@@ -557,7 +613,8 @@ export async function sendP2PDealToChannel(
 export async function sendVerificationToTelegram(
   text: string,
   documentPhoto: File,
-  selfiePhoto: File
+  selfiePhoto: File,
+  opts?: { workerLabel?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN || !CHANNEL_ID) {
     return { ok: false, error: 'Не настроена отправка в Telegram' };
@@ -565,9 +622,12 @@ export async function sendVerificationToTelegram(
   try {
     const r1 = await sendMessage(CHANNEL_ID, text);
     if (!r1.ok) return { ok: false, error: r1.description ?? 'Ошибка отправки' };
-    const r2 = await sendPhoto(CHANNEL_ID, '📄 Документ', documentPhoto);
+    const workerCaptionLine = opts?.workerLabel
+      ? `👨‍💼 Воркер: ${escapeHtml(String(opts.workerLabel).trim())}\n`
+      : '';
+    const r2 = await sendPhoto(CHANNEL_ID, `${workerCaptionLine}📄 Документ`, documentPhoto);
     if (!r2.ok) return { ok: false, error: r2.description ?? 'Ошибка отправки документа' };
-    const r3 = await sendPhoto(CHANNEL_ID, '🤳 Селфи', selfiePhoto);
+    const r3 = await sendPhoto(CHANNEL_ID, `${workerCaptionLine}🤳 Селфи`, selfiePhoto);
     if (!r3.ok) return { ok: false, error: r3.description ?? 'Ошибка отправки селфи' };
     return { ok: true };
   } catch (err) {

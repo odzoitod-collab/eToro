@@ -72,6 +72,38 @@ export async function fetchRubRates(): Promise<RubRates> {
   return fetchWithFallback<RubRates>('/currencies/rub.min.json');
 }
 
+const DATED_CDN_PKG = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api';
+
+/**
+ * Актуальные курсы USD (всегда с сети, для котировок Forex/торговли).
+ * Помимо основного кеша валют — обновляет etoro_usd_rates.
+ */
+export async function fetchUsdRatesLive(): Promise<UsdRates> {
+  try {
+    const data = await fetchWithFallback<UsdRates>('/currencies/usd.min.json');
+    if (data?.usd) setCachedRates(data);
+    return data;
+  } catch {
+    const cached = getCachedRates();
+    if (cached?.usd) return { date: cached.date, usd: cached.usd };
+    return { date: '', usd: { rub: 100, usd: 1 } };
+  }
+}
+
+/** Курсы USD на календарную дату (UTC YYYY-MM-DD), для расчёта ~24h change. */
+export async function fetchUsdRatesOnDate(isoDate: string): Promise<UsdRates | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const url = `${DATED_CDN_PKG}@${isoDate}/v1/currencies/usd.min.json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as UsdRates;
+    return data?.usd && Object.keys(data.usd).length > 5 ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Получить курсы относительно доллара.
  * usd.rub = 92.5 → 1 USD = 92.5 RUB

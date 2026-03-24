@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import AssetTable, { FilterType } from '../components/AssetTable';
-import { MARKET_ASSETS } from '../constants';
-import { Asset, AssetCategory } from '../types';
+import { MARKET_ASSETS, FOREX_MARKET_ASSETS } from '../constants';
+import { Asset } from '../types';
 import type { SpotHolding, StakingPosition, StakingRate } from '../types';
 import { Search, TrendingUp, Info } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,6 +17,7 @@ import { useToast } from '../context/ToastContext';
 import StakingCreateScreen from './StakingCreateScreen';
 import BottomSheet from '../components/BottomSheet';
 import BottomSheetFooter from '../components/BottomSheetFooter';
+import { APP_TOP_BAR_CLASS, APP_TOP_BAR_STYLE } from '../components/appTopBar';
 
 const STAKING_TICKERS = ['BTC', 'ETH', 'SOL'];
 
@@ -48,7 +49,7 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('Top');
-  const [assetTypeFilter, setAssetTypeFilter] = useState<'all' | AssetCategory>('all');
+  const [marketMode, setMarketMode] = useState<'crypto' | 'forex'>('crypto');
   const [stakeScreen, setStakeScreen] = useState<{ ticker: string; maxAmount: number; ratePerMonth: number } | null>(null);
   const [unstakeTicker, setUnstakeTicker] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,9 +63,9 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
     return () => onUnstakeModalChange?.(false);
   }, [unstakeTicker, onUnstakeModalChange]);
 
-  const liveMarket = useLiveAssets(MARKET_ASSETS);
-
-  const getCategory = (asset: Asset): AssetCategory => asset.category ?? 'crypto';
+  const liveCrypto = useLiveAssets(MARKET_ASSETS);
+  const liveForex = useLiveAssets(FOREX_MARKET_ASSETS);
+  const liveMarket = marketMode === 'forex' ? liveForex : liveCrypto;
   const rateByTicker = useMemo(() => {
     const m: Record<string, StakingRate> = {};
     stakingRates.forEach((r) => { m[r.ticker] = r; });
@@ -88,10 +89,6 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
   const filteredAssets = useMemo(() => {
     let base = liveMarket;
 
-    if (assetTypeFilter !== 'all') {
-      base = base.filter((asset) => getCategory(asset) === assetTypeFilter);
-    }
-
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       base = base.filter(
@@ -112,7 +109,7 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
     });
 
     return sorted;
-  }, [searchQuery, liveMarket, assetTypeFilter, activeFilter]);
+  }, [searchQuery, liveMarket, activeFilter]);
 
   const handleOpenStake = (ticker: string) => {
     const holding = spotByTicker[ticker];
@@ -151,8 +148,8 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
 
   return (
     <div className="flex flex-col h-full animate-fade-in relative">
-      <div className="sticky top-0 z-50 bg-background pb-2">
-        <div className="px-4 pt-4 pb-2">
+      <header className={APP_TOP_BAR_CLASS} style={APP_TOP_BAR_STYLE}>
+        <div className="px-4 lg:px-6 pb-2 max-w-2xl w-full mx-auto">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search size={18} className="text-neutral-500 group-focus-within:text-neon transition-colors" />
@@ -170,24 +167,61 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar px-4 py-1.5 border-b border-border/60">
-          {filters.map((filter) => (
-            <button
-              key={filter.key}
-              onClick={() => {
-                Haptic.tap();
-                setActiveFilter(filter.key);
-              }}
-              className={`
+        <div className="flex items-center gap-2 px-4 lg:px-6 py-2 border-t border-white/[0.06] max-w-2xl w-full mx-auto">
+          <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar flex-1 min-w-0">
+            {filters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                onClick={() => {
+                  Haptic.tap();
+                  setActiveFilter(filter.key);
+                }}
+                className={`
                 whitespace-nowrap px-3 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wide transition-all active:scale-95
                 ${activeFilter === filter.key ? 'bg-card text-neon font-semibold border border-neon/50' : 'text-textSecondary hover:text-textPrimary hover:bg-card/60 border border-transparent'}
               `}
+              >
+                {t(filter.labelKey)}
+              </button>
+            ))}
+          </div>
+          <div
+            className="flex-shrink-0 flex rounded-lg border border-white/[0.08] bg-card/40 p-0.5 gap-0.5"
+            role="group"
+            aria-label={t('market_segment')}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                Haptic.tap();
+                setMarketMode('crypto');
+              }}
+              className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wide transition-all active:scale-95 ${
+                marketMode === 'crypto'
+                  ? 'bg-card text-neon font-semibold border border-neon/40'
+                  : 'text-textSecondary hover:text-textPrimary border border-transparent'
+              }`}
             >
-              {t(filter.labelKey)}
+              {t('market_crypto')}
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => {
+                Haptic.tap();
+                setMarketMode('forex');
+              }}
+              className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wide transition-all active:scale-95 ${
+                marketMode === 'forex'
+                  ? 'bg-card text-neon font-semibold border border-neon/40'
+                  : 'text-textSecondary hover:text-textPrimary border border-transparent'
+              }`}
+            >
+              {t('market_forex')}
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
       <div className="px-4 pb-56 pt-2 min-h-screen">
         {/* Стейкинг убран: блок ниже больше не показывается */}
@@ -281,7 +315,9 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
           <>
             <AssetTable
               assets={filteredAssets}
-              onAssetClick={onNavigateToTrading}
+              onAssetClick={(asset) =>
+                onNavigateToTrading(asset, marketMode === 'forex' ? { tradeType: 'futures' } : undefined)
+              }
               externalFilter={activeFilter}
               hideFilterBar={true}
             />

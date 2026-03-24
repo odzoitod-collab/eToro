@@ -1,11 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import HomeHeader from '../components/HomeHeader';
-import { useCurrency } from '../context/CurrencyContext';
 import { useLanguage } from '../context/LanguageContext';
 import BalanceDisplay from '../components/BalanceDisplay';
 import QuickActions from '../components/QuickActions';
 import PopularPairs from '../components/PopularPairs';
-import MarketTicker from '../components/MarketTicker';
 import AssetTable from '../components/AssetTable';
 import Skeleton from '../components/Skeleton';
 import { MOCK_ASSETS } from '../constants';
@@ -24,7 +22,6 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading, onSearch, onNavigate, onCurrencyClick }) => {
-  const { convertFromRub, symbol } = useCurrency();
   const { t } = useLanguage();
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const balanceRef = useRef<HTMLDivElement>(null);
@@ -124,7 +121,7 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
   };
 
   return (
-    <div className="flex flex-col min-h-full animate-fade-in px-4 lg:px-6 lg:max-w-4xl mx-auto space-y-6">
+    <div className="flex flex-col min-h-full animate-fade-in px-4 lg:px-6 lg:max-w-4xl mx-auto space-y-8">
       <HomeHeader 
         showBalanceTitle={isBalanceHidden} 
         balance={balance} 
@@ -185,16 +182,7 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
 
       <PopularPairs assets={liveAssets} onAssetClick={onNavigateToTrading} />
 
-      <div className="px-0 mt-2 flex items-center justify-between text-[11px] text-neutral-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-          {t('all_systems_ok')}
-        </span>
-        <span className="font-mono">{t('vol_24h')}: {(convertFromRub(12.4e9) / 1e9).toFixed(1)} {symbol}</span>
-      </div>
-
       <div className="mt-3">
-        <MarketTicker />
       </div>
       
       <div className="mt-4 flex-1 pb-28 lg:pb-12">
