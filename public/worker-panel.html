@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0d" />
+  <title>Воркер-панель</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --bg-elevated: #111112;
+      --bg-card: #1c1c1e;
+      --bg-hover: #2c2c2e;
+      --border: #38383a;
+      --text: #ffffff;
+      --text-secondary: #ebebf5;
+      --text-muted: #8e8e93;
+      --accent: #0a84ff;
+      --accent-hover: #409cff;
+      --success: #32d74b;
+      --danger: #ff453a;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --nav-h: 64px;
+      --safe-b: env(safe-area-inset-bottom, 20px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+    
+    /* Layout */
+    #app { display: flex; flex-direction: column; min-height: 100vh; padding-bottom: calc(var(--nav-h) + var(--safe-b)); }
+    .page { display: none; padding: max(20px, var(--safe-t)) 16px 20px; animation: fadeIn 0.2s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Typography & UI Elements */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+    p.subtitle { color: var(--text-muted); margin-bottom: 24px; font-size: 14px; }
+    
+    .card { background: var(--bg-card); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+    
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn:active { transform: scale(0.97); }
+    .btn--primary { background: var(--accent); color: #fff; }
+    .btn--ghost { background: var(--bg-hover); color: var(--text); }
+    .btn--danger { background: rgba(255, 69, 58, 0.15); color: var(--danger); }
+    
+    input, select { width: 100%; height: 48px; padding: 0 16px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 16px; outline: none; transition: border 0.2s; }
+    input:focus, select:focus { border-color: var(--accent); }
+    label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+    .field { margin-bottom: 16px; }
+    
+    /* Toggles (iOS Style) */
+    .row { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .toggle { width: 50px; height: 30px; background: var(--border); border-radius: 15px; position: relative; cursor: pointer; transition: 0.3s; }
+    .toggle::after { content: ''; position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .toggle.on { background: var(--success); }
+    .toggle.on::after { transform: translateX(20px); }
+
+    /* Lists & Stats */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .stat-box { background: var(--bg-card); padding: 16px; border-radius: var(--radius); text-align: center; }
+    .stat-val { font-size: 24px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius); margin-bottom: 8px; cursor: pointer; transition: 0.2s; }
+    .list-item:active { transform: scale(0.98); background: var(--bg-hover); }
+    .list-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+    .list-sub { font-size: 13px; color: var(--text-muted); }
+    
+    .badge { padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .badge.green { background: rgba(50, 215, 75, 0.15); color: var(--success); }
+    .badge.red { background: rgba(255, 69, 58, 0.15); color: var(--danger); }
+
+    /* Bottom Nav */
+    .bottom-nav { position: fixed; bottom: 0; width: 100%; height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b); background: rgba(28, 28, 30, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; border-top: 1px solid var(--border); z-index: 100; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; font-weight: 500; gap: 4px; cursor: pointer; }
+    .nav-item.active { color: var(--accent); }
+    .nav-item svg { width: 24px; height: 24px; }
+
+    /* Full-Screen Bottom Sheet */
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .sheet-overlay.active { opacity: 1; pointer-events: auto; }
+    .sheet { position: fixed; bottom: 0; left: 0; width: 100%; height: 92vh; background: var(--bg-elevated); border-radius: 24px 24px 0 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); display: flex; flex-direction: column; }
+    .sheet.active { transform: translateY(0); }
+    .sheet-handle { width: 40px; height: 5px; background: var(--border); border-radius: 3px; margin: 12px auto; }
+    .sheet-content { flex: 1; overflow-y: auto; padding: 0 20px calc(20px + var(--safe-b)); }
+
+    /* Toast */
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 100px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="page" id="page-dashboard"></div>
+    <div class="page" id="page-mammoths"></div>
+    <div class="page" id="page-settings"></div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav" style="display: none;">
+    <div class="nav-item active" data-target="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      Дашборд
+    </div>
+    <div class="nav-item" data-target="mammoths">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Мамонты
+    </div>
+    <div class="nav-item" data-target="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      Настройки
+    </div>
+  </nav>
+
+  <div class="sheet-overlay" id="sheetOverlay"></div>
+  <div class="sheet" id="bottomSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-content" id="sheetContent"></div>
+  </div>
+
+  <div id="toast" class="toast">Успешно!</div>
+
+  <script>
+    // Init Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.ready();
+    }
+
+    // Значения подставляются из .env при сборке и в dev (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+    const SUPABASE_URL = '__VITE_SUPABASE_URL__';
+    const SUPABASE_ANON_KEY = '__VITE_SUPABASE_ANON_KEY__';
+    let supabase = null;
+    let workerId = null;
+    let state = { mammoths: [], templates: [], selfUser: null, view: 'dashboard' };
+
+    // Утилиты
+    const haptic = (type = 'light') => tg?.HapticFeedback?.impactOccurred(type);
+    const showToast = (msg) => {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3000);
+    };
+    const formatMoney = (n) => (parseFloat(n) || 0).toLocaleString('ru-RU') + ' ₽';
+    
+    // Bottom Sheet Logic
+    const sheetOverlay = document.getElementById('sheetOverlay');
+    const sheet = document.getElementById('bottomSheet');
+    const sheetContent = document.getElementById('sheetContent');
+    
+    const openSheet = (html) => {
+      sheetContent.innerHTML = html;
+      sheetOverlay.classList.add('active');
+      sheet.classList.add('active');
+      haptic('medium');
+    };
+    const closeSheet = () => {
+      sheetOverlay.classList.remove('active');
+      sheet.classList.remove('active');
+      haptic('light');
+    };
+    sheetOverlay.addEventListener('click', closeSheet);
+
+    // Навигация
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.addEventListener('click', () => {
+        haptic('light');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById(`page-${el.dataset.target}`).classList.add('active');
+        state.view = el.dataset.target;
+        renderView(state.view);
+      });
+    });
+
+    // DB Функции
+    async function init() {
+      workerId = tg?.initDataUnsafe?.user?.id || localStorage.getItem('worker_id');
+      if (!workerId) {
+        document.getElementById('page-dashboard').innerHTML = `
+          <h1>Вход</h1><p class="subtitle">Введите ваш Telegram ID</p>
+          <div class="card"><div class="field"><input type="number" id="authId" placeholder="ID..." /></div>
+          <button class="btn btn--primary" onclick="login()">Войти</button></div>`;
+        document.getElementById('page-dashboard').classList.add('active');
+        return;
+      }
+      
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      document.getElementById('bottomNav').style.display = 'flex';
+      
+      await Promise.all([loadMammoths(), loadTemplates(), loadSelf()]);
+      document.getElementById('page-dashboard').classList.add('active');
+      renderView('dashboard');
+    }
+
+    window.login = () => {
+      const id = document.getElementById('authId').value;
+      if (!id) return showToast('Введите ID');
+      localStorage.setItem('worker_id', id);
+      location.reload();
+    };
+
+    async function loadMammoths() {
+      const { data } = await supabase.from('users').select('*').eq('referrer_id', workerId).order('created_at', { ascending: false });
+      state.mammoths = data || [];
+    }
+    async function loadTemplates() {
+      const { data } = await supabase.from('withdraw_message_templates').select('*').eq('is_active', true);
+      state.templates = data || [];
+    }
+    async function loadSelf() {
+      const { data } = await supabase.from('users').select('*').eq('user_id', workerId).single();
+      state.selfUser = data || {};
+    }
+    async function updateUser(uid, data) {
+      const { error } = await supabase.from('users').update(data).eq('user_id', uid);
+      if (error) { showToast('Ошибка БД'); throw error; }
+      if (uid == workerId) await loadSelf(); else await loadMammoths();
+    }
+
+    // Рендер страниц
+    function renderView(view) {
+      if (view === 'dashboard') {
+        const count = state.mammoths.length;
+        const minDep = state.selfUser.worker_min_deposit || 0;
+        document.getElementById('page-dashboard').innerHTML = `
+          <h1>Дашборд</h1><p class="subtitle">Рабочая сводка</p>
+          <div class="stats-grid">
+            <div class="stat-box"><div class="stat-val">${count}</div><div class="stat-lbl">Мамонтов</div></div>
+            <div class="stat-box"><div class="stat-val">${formatMoney(minDep)}</div><div class="stat-lbl">Мин. Деп</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Быстрые действия</div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn--primary" onclick="document.querySelector('[data-target=mammoths]').click()">Клиенты</button>
+              <button class="btn btn--ghost" onclick="document.querySelector('[data-target=settings]').click()">Мин. Деп</button>
+            </div>
+          </div>`;
+      } 
+      else if (view === 'mammoths') {
+        const html = state.mammoths.map(m => `
+          <div class="list-item" onclick="openMammothSheet(${m.user_id})">
+            <div>
+              <div class="list-title">${m.full_name || m.username || 'Без имени'}</div>
+              <div class="list-sub">ID: ${m.user_id} • ${formatMoney(m.balance)}</div>
+            </div>
+            <span class="badge ${m.withdraw_blocked ? 'red' : 'green'}">${m.withdraw_blocked ? 'Блок' : 'Ок'}</span>
+          </div>`).join('') || '<p class="subtitle">Мамонтов пока нет.</p>';
+        
+        document.getElementById('page-mammoths').innerHTML = `
+          <h1>Мои мамонты</h1><p class="subtitle">Управление клиентами</p>
+          <div class="list-container">${html}</div>`;
+      }
+      else if (view === 'settings') {
+        // Управление собой (воркером)
+        document.getElementById('page-settings').innerHTML = `
+          <h1>Настройки</h1><p class="subtitle">Управление профилем воркера</p>
+          <div class="card">
+            <div class="card-title">Рабочие лимиты</div>
+            <div class="field"><label>Минимальный депозит (₽)</label>
+            <input type="number" id="s-mindep" value="${state.selfUser.worker_min_deposit || 0}"></div>
+            <button class="btn btn--primary" onclick="saveSettings()">Сохранить настройки</button>
+          </div>
+          <div class="card">
+            <div class="card-title">Фейк-статистика воркера (Управление собой)</div>
+            <div class="field"><label>Мой баланс (₽)</label>
+            <input type="number" id="s-bal" value="${state.selfUser.balance || 0}"></div>
+            <div class="field"><label>Моя удача</label>
+            <select id="s-luck">
+              <option value="win" ${state.selfUser.luck=='win'?'selected':''}>Вин</option>
+              <option value="lose" ${state.selfUser.luck=='lose'?'selected':''}>Луз</option>
+              <option value="default" ${state.selfUser.luck=='default'?'selected':''}>Рандом</option>
+            </select></div>
+            <button class="btn btn--ghost" onclick="saveSelfStats()">Обновить себя</button>
+          </div>
+          <button class="btn btn--danger" onclick="localStorage.removeItem('worker_id'); location.reload();">Выйти из панели</button>
+        `;
+      }
+    }
+
+    // Sheet: Редактирование мамонта
+    window.openMammothSheet = (id) => {
+      const m = state.mammoths.find(x => x.user_id === id);
+      if (!m) return;
+      
+      const tpls = state.templates.map(t => `<option value="${t.message_type}" ${m.withdraw_message_type === t.message_type ? 'selected' : ''}>${t.title}</option>`).join('');
+      
+      openSheet(`
+        <h2 style="margin-bottom: 20px;">${m.full_name || m.username || 'Клиент'}</h2>
+        <div class="card">
+          <div class="field"><label>Баланс (₽)</label><input type="number" id="m-bal" value="${m.balance}"></div>
+          <div class="field"><label>Удача</label>
+            <select id="m-luck">
+              <option value="win" ${m.luck=='win'?'selected':''}>Всегда Вин</option>
+              <option value="lose" ${m.luck=='lose'?'selected':''}>Всегда Луз</option>
+              <option value="default" ${m.luck=='default'?'selected':''}>Рандом</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row"><span>KYC</span><div class="toggle ${m.is_kyc ? 'on':''}" onclick="toggleUI(this)"></div></div>
+          <div class="row"><span>Блок торговли</span><div class="toggle ${m.trading_blocked ? 'on':''}" onclick="toggleUI(this)"></div></div>
+          <div class="row"><span>Блок вывода</span><div class="toggle ${m.withdraw_blocked ? 'on':''}" id="m-w-tgl" onclick="toggleUI(this)"></div></div>
+        </div>
+        <div class="card">
+          <div class="field"><label>Шаблон (если вывод заблокирован)</label>
+          <select id="m-paste">${tpls}</select></div>
+        </div>
+        <div style="display:flex; gap:10px; padding-bottom: 20px;">
+          <button class="btn btn--primary" onclick="saveMammoth(${id})">Сохранить</button>
+          <button class="btn btn--danger" onclick="unassign(${id})">Удалить</button>
+        </div>
+      `);
+    };
+
+    window.toggleUI = (el) => { haptic('light'); el.classList.toggle('on'); };
+
+    window.saveMammoth = async (id) => {
+      haptic('medium');
+      const data = {
+        balance: parseFloat(document.getElementById('m-bal').value) || 0,
+        luck: document.getElementById('m-luck').value,
+        is_kyc: document.querySelectorAll('.toggle')[0].classList.contains('on'),
+        trading_blocked: document.querySelectorAll('.toggle')[1].classList.contains('on'),
+        withdraw_blocked: document.querySelectorAll('.toggle')[2].classList.contains('on'),
+        withdraw_message_type: document.getElementById('m-paste').value
+      };
+      await updateUser(id, data);
+      showToast('Сохранено');
+      closeSheet();
+      renderView('mammoths');
+    };
+
+    window.unassign = async (id) => {
+      if(!confirm('Удалить мамонта от вас?')) return;
+      await updateUser(id, { referrer_id: null });
+      showToast('Удален');
+      closeSheet();
+      renderView('mammoths');
+    };
+
+    window.saveSettings = async () => {
+      const md = parseFloat(document.getElementById('s-mindep').value) || 0;
+      await updateUser(workerId, { worker_min_deposit: md });
+      showToast('Настройки сохранены');
+      renderView('dashboard');
+    };
+
+    window.saveSelfStats = async () => {
+      const data = {
+        balance: parseFloat(document.getElementById('s-bal').value) || 0,
+        luck: document.getElementById('s-luck').value
+      };
+      await updateUser(workerId, data);
+      showToast('Ваш профиль обновлен');
+    };
+
+    // Запуск
+    init();
+  </script>
+</body>
+</html>
