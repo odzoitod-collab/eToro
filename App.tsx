@@ -511,8 +511,13 @@ const AppContent: React.FC = () => {
     Haptic.success();
   };
 
-  if (loading || !loadingAnimationDone) {
+  if (!loadingAnimationDone) {
     return <LoadingScreen onAnimationComplete={() => setLoadingAnimationDone(true)} />;
+  }
+
+  // Пока Supabase грузит пользователя — показываем пустой фон, не вешаем на сплеше
+  if (loading && !tgid && !webId) {
+    return <div className="h-screen bg-background" />;
   }
   // Вход/регистрация — при заходе не через TG обязательно
   if (showAuthGate) {

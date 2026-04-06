@@ -13,7 +13,7 @@ interface LoadingScreenProps {
 
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ onAnimationComplete }) => {
   useEffect(() => {
-    const timer = setTimeout(() => onAnimationComplete?.(), 2000);
+    const timer = setTimeout(() => onAnimationComplete?.(), 600);
     return () => clearTimeout(timer);
   }, [onAnimationComplete]);
 
