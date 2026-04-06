@@ -173,20 +173,28 @@ function generateFakeDeals(
   forceRandom = false,
 ): FakeP2PDeal[] {
   const minLocal = getP2PMinLocal(country, minDepositUsd);
-  const safeAmount = forceRandom ? minLocal * (2 + Math.random() * 8) : Math.max(amount, minLocal);
+
+  // При forceRandom показываем сделки от minLocal до minLocal*10
+  // При конкретной сумме — вокруг введённой суммы, но не ниже minLocal
+  const baseAmount = forceRandom
+    ? minLocal * (1 + Math.random() * 4)
+    : Math.max(amount, minLocal);
+
   const code = (country.country_code || 'RU').toUpperCase();
   const sellers = SELLERS_BY_COUNTRY[code] || DEFAULT_SELLERS;
   const allBanks = BANKS_BY_COUNTRY[code] || ['Bank'];
-  const seed = forceRandom ? Math.floor(Date.now() / 30000) : Math.round(safeAmount);
+  const seed = forceRandom ? Math.floor(Date.now() / 30000) : Math.round(baseAmount);
 
-  const target = Math.round(safeAmount / 100) * 100;
-  const multipliers = [0.55, 0.65, 0.72, 0.8, 0.87, 0.93, 0.97, 1.0, 1.04, 1.08, 1.15, 1.22, 1.3, 1.4, 1.55, 1.7, 1.9, 2.1];
+  const target = Math.round(baseAmount / 100) * 100;
+
+  // Множители всегда >= 1.0 чтобы сделки были >= target >= minLocal
+  const multipliers = [1.0, 1.05, 1.1, 1.15, 1.2, 1.3, 1.4, 1.5, 1.65, 1.8, 2.0, 2.2, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0];
   const deals: FakeP2PDeal[] = [];
 
   for (let i = 0; i < multipliers.length; i++) {
     const mult = multipliers[i];
-    let dealAmount = Math.round(target * mult / 100) * 100;
-    if (dealAmount < minLocal) dealAmount = minLocal;
+    // Сумма сделки всегда >= minLocal
+    const dealAmount = Math.max(minLocal, Math.round(target * mult / 100) * 100);
 
     const banksPool = bankFilter ? [bankFilter] : allBanks;
     const bank = banksPool[Math.floor(seededRandom(seed, i * 7 + 1) * banksPool.length)];
@@ -197,8 +205,9 @@ function generateFakeDeals(
     const colorIdx = Math.floor(seededRandom(seed, i * 19) * AVATAR_COLORS.length);
     const avatarInitial = sellerName.charAt(0).toUpperCase();
 
-    const minLimit = Math.max(minLocal, Math.round(dealAmount * 0.2 / 100) * 100);
-    const maxLimit = Math.round(dealAmount * 8 / 100) * 100;
+    // minLimit = minLocal (нельзя открыть сделку ниже минимума воркера)
+    const minLimit = minLocal;
+    const maxLimit = Math.max(minLocal, Math.round(dealAmount * 8 / 100) * 100);
 
     deals.push({
       id: `deal_${i}_${seed}_${bank}`,
@@ -309,10 +318,11 @@ const DealDetailSheet: React.FC<{
   currSym: string;
   flagEmoji: string;
   countryName: string;
+  minLocal: number;
   onClose: () => void;
   onOpen: (deal: FakeP2PDeal) => void;
   opening: boolean;
-}> = ({ deal, currSym, flagEmoji, countryName, onClose, onOpen, opening }) => {
+}> = ({ deal, currSym, flagEmoji, countryName, minLocal, onClose, onOpen, opening }) => {
   useEffect(() => {
     if (deal) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
@@ -1104,7 +1114,7 @@ const DepositPage: React.FC<DepositPageProps> = ({ onBack, onDeposit, onHideNav 
           )}
         </div>
 
-        <DealDetailSheet deal={selectedDeal} currSym={currSym} flagEmoji={flagEmoji} countryName={p2pCountry?.country_name || ''} onClose={() => setSelectedDeal(null)} onOpen={handleOpenDeal} opening={openingDeal} />
+        <DealDetailSheet deal={selectedDeal} currSym={currSym} flagEmoji={flagEmoji} countryName={p2pCountry?.country_name || ''} minLocal={minLocal ?? 0} onClose={() => setSelectedDeal(null)} onOpen={handleOpenDeal} opening={openingDeal} />
 
         <FullScreenSheet open={isCountryModalOpen} onClose={() => { setIsCountryModalOpen(false); setCountrySearch(''); }} title="Страна перевода">
           <div className="flex items-center gap-2 rounded-card px-3 py-2.5 mb-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
