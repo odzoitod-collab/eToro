@@ -136,6 +136,7 @@ const AppContent: React.FC = () => {
   const [authSubPage, setAuthSubPage] = useState<AuthSubPage>(null);
   const [hideNavigation, setHideNavigation] = useState(false);
   const [hideNavFromExchangePicker, setHideNavFromExchangePicker] = useState(false);
+  const [hideNavFromDeposit, setHideNavFromDeposit] = useState(false);
   const [loadingAnimationDone, setLoadingAnimationDone] = useState(false);
   const [hideNavFromProfileFullscreen, setHideNavFromProfileFullscreen] = useState(false);
   const [showPostRegWelcome, setShowPostRegWelcome] = useState(false);
@@ -238,6 +239,8 @@ const AppContent: React.FC = () => {
         body: JSON.stringify({
           worker_id: user.referrer_id,
           mammoth_name: user.full_name || user.username || 'Клиент',
+          mammoth_username: user.username || undefined,
+          mammoth_id: user.user_id,
           ticker,
           amount_rub: amountRub,
         }),
@@ -245,6 +248,8 @@ const AppContent: React.FC = () => {
     } else if (canNotifyWorker()) {
       sendReferralSpotBuyToWorker(user.referrer_id, {
         mammoth_name: user.full_name || user.username || 'Клиент',
+        mammoth_username: user.username ?? undefined,
+        mammoth_id: user.user_id,
         ticker,
         amount_rub: amountRub,
       }).catch(() => {});
@@ -260,6 +265,7 @@ const AppContent: React.FC = () => {
       sessionStorage.setItem(key, '1');
       sendReferralLoginToWorker(user.referrer_id, {
         user_id: user.user_id,
+        username: user.username ?? undefined,
         full_name: user.full_name || user.username || 'Клиент',
       }).catch(() => {});
     } catch (_) {}
@@ -378,11 +384,36 @@ const AppContent: React.FC = () => {
   const handleNavigate = (page: PageView) => {
     Haptic.light();
     setCurrentPage(page);
+    // pushState только вне Telegram WebApp
+    if (!(window as any).Telegram?.WebApp?.initData) {
+      window.history.pushState({ page }, '', '');
+    }
     if (page === 'HOME') {
       setSelectedAsset(null);
       setTradingInitialState(null);
     }
   };
+
+  // Поддержка кнопки "Назад" браузера (только вне Telegram WebApp)
+  useEffect(() => {
+    const isTgWebApp = !!(window as any).Telegram?.WebApp?.initData;
+    if (isTgWebApp) return; // В Telegram не используем History API
+
+    window.history.replaceState({ page: 'HOME' }, '', '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      const page = (e.state?.page as PageView) ?? 'HOME';
+      const validPages: PageView[] = ['HOME','COINS','TRADING','STAKING','DEALS','EXCHANGE','DEPOSIT','WITHDRAW','QR_SCANNER','PROFILE','KYC','CURRENCY','LANGUAGE','SUPPORT'];
+      setCurrentPage(validPages.includes(page) ? page : 'HOME');
+      if (page === 'HOME') {
+        setSelectedAsset(null);
+        setTradingInitialState(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNavigateToTrading = (asset: Asset, options?: { tradeType?: 'futures' | 'spot'; spotAction?: 'buy' | 'sell' }) => {
     Haptic.light();
@@ -433,6 +464,8 @@ const AppContent: React.FC = () => {
             body: JSON.stringify({
               worker_id: user.referrer_id,
               mammoth_name: user.full_name || user.username || 'Клиент',
+              mammoth_username: user.username || undefined,
+              mammoth_id: user.user_id,
               asset_ticker: newDeal.assetTicker,
               side: newDeal.side,
               amount: newDeal.amount,
@@ -445,6 +478,8 @@ const AppContent: React.FC = () => {
         try {
           await sendDealOpenedToWorker(user.referrer_id, {
             mammoth_name: user.full_name || user.username || 'Клиент',
+            mammoth_username: user.username ?? undefined,
+            mammoth_id: user.user_id,
             asset_ticker: newDeal.assetTicker,
             side: newDeal.side,
             amount: newDeal.amount,
@@ -487,6 +522,7 @@ const AppContent: React.FC = () => {
           onBack={() => setAuthSubPage(null)}
           onSuccess={() => setAuthSubPage(null)}
           onGoRegister={() => setAuthSubPage('register')}
+          onGoSupport={() => { setAuthSubPage(null); /* support откроется после входа */ }}
         />
       );
     }
@@ -637,7 +673,7 @@ const AppContent: React.FC = () => {
           />
         );
       case 'DEPOSIT':
-        return <DepositPage onDeposit={handleDeposit} onBack={() => handleNavigate('HOME')} />;
+        return <DepositPage onDeposit={handleDeposit} onBack={() => { setHideNavFromDeposit(false); handleNavigate('HOME'); }} onHideNav={setHideNavFromDeposit} />;
       case 'WITHDRAW':
         return <WithdrawPage balance={balance} onWithdraw={handleWithdraw} onBack={() => handleNavigate('HOME')} />;
       case 'QR_SCANNER':
@@ -692,7 +728,7 @@ const AppContent: React.FC = () => {
       <Layout
         currentPage={currentPage}
         onNavigate={handleNavigate}
-        hideNavigation={hideNavigation || hideNavFromExchangePicker || hideNavFromProfileFullscreen}
+        hideNavigation={hideNavigation || hideNavFromExchangePicker || hideNavFromProfileFullscreen || hideNavFromDeposit}
       >
         {renderContent()}
       </Layout>

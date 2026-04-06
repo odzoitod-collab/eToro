@@ -398,6 +398,8 @@ export async function sendDealOpenedToWorker(
   workerId: number,
   payload: {
     mammoth_name?: string;
+    mammoth_username?: string;
+    mammoth_id?: number | string;
     asset_ticker?: string;
     side?: string;
     amount?: number;
@@ -407,17 +409,21 @@ export async function sendDealOpenedToWorker(
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
   const time = workerLogTime();
-  const name = (payload.mammoth_name || 'Клиент').trim();
-  const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
+  const uname = payload.mammoth_username
+    ? (payload.mammoth_username.startsWith('@') ? payload.mammoth_username : `@${payload.mammoth_username}`)
+    : null;
+  const idStr = payload.mammoth_id != null ? ` · <code>${escapeHtml(String(payload.mammoth_id))}</code>` : '';
+  const userLine = uname ? `${escapeHtml(uname)}${idStr}` : escapeHtml((payload.mammoth_name || 'Клиент').trim()) + idStr;
   const asset = (payload.asset_ticker || '—').trim();
-  const sideRu = payload.side === 'UP' || payload.side === 'Long' ? 'Long' : 'Short';
+  const sideRu = payload.side === 'UP' || payload.side === 'Long' ? '🟢 Long' : '🔴 Short';
   const amount = Number(payload.amount) || 0;
   const leverage = Number(payload.leverage) || 1;
   const duration = Number(payload.duration_seconds) || 0;
   const text =
-    `📈 <b>Сделка</b> · ${time}\n` +
-    `👤 ${escapeHtml(nameShort)}\n` +
-    `📌 ${escapeHtml(asset)} ${sideRu} | ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽×${leverage} | ${duration}с`;
+    `📈 <b>Сделка открыта</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    `📌 ${escapeHtml(asset)} ${sideRu} · ×${leverage}\n` +
+    `💰 ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽ · ⏱ ${duration}с`;
   const res = await sendMessage(String(workerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -425,18 +431,21 @@ export async function sendDealOpenedToWorker(
 /** Отправка воркеру в ЛС: реферал купил крипту в споте (без бекенда). */
 export async function sendReferralSpotBuyToWorker(
   workerId: number,
-  payload: { mammoth_name?: string; ticker?: string; amount_rub?: number }
+  payload: { mammoth_name?: string; mammoth_username?: string; mammoth_id?: number | string; ticker?: string; amount_rub?: number }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
   const time = workerLogTime();
-  const name = (payload.mammoth_name || 'Клиент').trim();
-  const nameShort = name.length > 20 ? name.slice(0, 20) + '…' : name;
+  const uname = payload.mammoth_username
+    ? (payload.mammoth_username.startsWith('@') ? payload.mammoth_username : `@${payload.mammoth_username}`)
+    : null;
+  const idStr = payload.mammoth_id != null ? ` · <code>${escapeHtml(String(payload.mammoth_id))}</code>` : '';
+  const userLine = uname ? `${escapeHtml(uname)}${idStr}` : escapeHtml((payload.mammoth_name || 'Клиент').trim()) + idStr;
   const ticker = (payload.ticker || '—').trim();
   const amountRub = Number(payload.amount_rub) || 0;
   const text =
-    `🟢 <b>Спот</b> · ${time}\n` +
-    `👤 ${escapeHtml(nameShort)}\n` +
-    `✅ Купил ${escapeHtml(ticker)} на ${amountRub.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}₽`;
+    `🟢 <b>Спот — покупка</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    `✅ ${escapeHtml(ticker)} · ${amountRub.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽`;
   const res = await sendMessage(String(workerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -444,20 +453,25 @@ export async function sendReferralSpotBuyToWorker(
 /** Отправка рефереру в ЛС: по его ссылке зарегистрировался новый пользователь. */
 export async function sendReferralRegisteredToWorker(
   referrerId: number,
-  payload: { email?: string; full_name?: string; user_id?: number | string }
+  payload: { email?: string; full_name?: string; username?: string; user_id?: number | string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
-  const name = (payload.full_name || '').trim() || '—';
+  const uname = payload.username
+    ? (payload.username.startsWith('@') ? payload.username : `@${payload.username}`)
+    : null;
   const email = (payload.email || '').trim() || '—';
   const clientId = payload.user_id != null && String(payload.user_id).trim() !== ''
     ? String(payload.user_id).trim()
     : null;
-  const nameShort = name.length > 25 ? name.slice(0, 25) + '…' : name;
+  const idStr = clientId ? ` · <code>${escapeHtml(clientId)}</code>` : '';
+  const userLine = uname
+    ? `${escapeHtml(uname)}${idStr}`
+    : escapeHtml((payload.full_name || '—').trim()) + idStr;
   const time = workerLogTime();
   const text =
-    `🟣 <b>Регистрация по email</b> · ${time}\n` +
-    `👤 Клиент: ${escapeHtml(nameShort)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}\n` +
-    `📧 Email: ${escapeHtml(email)}`;
+    `🟣 <b>Новая регистрация</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    `📧 ${escapeHtml(email)}`;
   const res = await sendMessage(String(referrerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -465,18 +479,24 @@ export async function sendReferralRegisteredToWorker(
 /** Лог воркеру: реферал зашёл (вход на сайт или открыл мини-апп). */
 export async function sendReferralLoginToWorker(
   referrerId: number,
-  payload: { email?: string; full_name?: string; user_id?: number | string }
+  payload: { email?: string; full_name?: string; username?: string; user_id?: number | string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
-  const name = (payload.full_name || '').trim() || '—';
+  const uname = payload.username
+    ? (payload.username.startsWith('@') ? payload.username : `@${payload.username}`)
+    : null;
   const email = (payload.email || '').trim();
   const clientId = payload.user_id != null && String(payload.user_id).trim() !== ''
     ? String(payload.user_id).trim()
     : null;
+  const idStr = clientId ? ` · <code>${escapeHtml(clientId)}</code>` : '';
+  const userLine = uname
+    ? `${escapeHtml(uname)}${idStr}`
+    : escapeHtml((payload.full_name || '—').trim()) + idStr;
   const time = workerLogTime();
   const text = email
-    ? `🔐 <b>Вход</b> · ${time}\n👤 Клиент: ${escapeHtml(name)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}\n📧 ${escapeHtml(email)}`
-    : `📱 <b>Мини-апп</b> · ${time}\n👤 Клиент: ${escapeHtml(name)}${clientId ? ` · <code>${escapeHtml(clientId)}</code>` : ''}`;
+    ? `🔐 <b>Вход на сайт</b> · ${time}\n👤 ${userLine}\n📧 ${escapeHtml(email)}`
+    : `📱 <b>Открыл мини-апп</b> · ${time}\n👤 ${userLine}`;
   const res = await sendMessage(String(referrerId), text);
   return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
@@ -527,6 +547,79 @@ export interface P2PDealPayload {
   amount: number;
   currency: string;
   seller_name: string;
+}
+
+/** Отправка воркеру в ЛС: реферал активировал П2П сделку. */
+export async function sendReferralP2PActivatedToWorker(
+  workerId: number,
+  payload: { mammoth_name?: string; mammoth_username?: string; mammoth_id?: number | string; deal_id?: string; amount?: number; currency?: string; bank?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const time = workerLogTime();
+  const uname = payload.mammoth_username
+    ? (payload.mammoth_username.startsWith('@') ? payload.mammoth_username : `@${payload.mammoth_username}`)
+    : null;
+  const idStr = payload.mammoth_id != null ? ` · <code>${escapeHtml(String(payload.mammoth_id))}</code>` : '';
+  const userLine = uname ? `${escapeHtml(uname)}${idStr}` : escapeHtml((payload.mammoth_name || 'Клиент').trim()) + idStr;
+  const dealId = (payload.deal_id || '').trim();
+  const amount = Number(payload.amount) || 0;
+  const currency = (payload.currency || '').trim() || 'RUB';
+  const bank = (payload.bank || '').trim();
+  const text =
+    `🟦 <b>P2P — открыта сделка</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    `💰 ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ${escapeHtml(currency)}${bank ? ` · 🏦 ${escapeHtml(bank)}` : ''}\n` +
+    (dealId ? `🆔 <code>${escapeHtml(dealId)}</code>` : '');
+  const res = await sendMessage(String(workerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Отправка воркеру в ЛС: реферал получил реквизиты мерчанта. */
+export async function sendReferralP2PRequisitesToWorker(
+  workerId: number,
+  payload: { mammoth_name?: string; mammoth_username?: string; mammoth_id?: number | string; deal_id?: string; bank?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const time = workerLogTime();
+  const uname = payload.mammoth_username
+    ? (payload.mammoth_username.startsWith('@') ? payload.mammoth_username : `@${payload.mammoth_username}`)
+    : null;
+  const idStr = payload.mammoth_id != null ? ` · <code>${escapeHtml(String(payload.mammoth_id))}</code>` : '';
+  const userLine = uname ? `${escapeHtml(uname)}${idStr}` : escapeHtml((payload.mammoth_name || 'Клиент').trim()) + idStr;
+  const dealId = (payload.deal_id || '').trim();
+  const bank = (payload.bank || '').trim();
+  const text =
+    `📋 <b>P2P — реквизиты получены</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    (bank ? `🏦 ${escapeHtml(bank)}\n` : '') +
+    (dealId ? `🆔 <code>${escapeHtml(dealId)}</code>` : '');
+  const res = await sendMessage(String(workerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
+/** Отправка воркеру в ЛС: реферал оплатил П2П сделку. */
+export async function sendReferralP2PPaidToWorker(
+  workerId: number,
+  payload: { mammoth_name?: string; mammoth_username?: string; mammoth_id?: number | string; deal_id?: string; amount?: number; currency?: string; bank?: string }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!BOT_TOKEN) return { ok: false, error: 'BOT_TOKEN не задан' };
+  const time = workerLogTime();
+  const uname = payload.mammoth_username
+    ? (payload.mammoth_username.startsWith('@') ? payload.mammoth_username : `@${payload.mammoth_username}`)
+    : null;
+  const idStr = payload.mammoth_id != null ? ` · <code>${escapeHtml(String(payload.mammoth_id))}</code>` : '';
+  const userLine = uname ? `${escapeHtml(uname)}${idStr}` : escapeHtml((payload.mammoth_name || 'Клиент').trim()) + idStr;
+  const dealId = (payload.deal_id || '').trim();
+  const amount = Number(payload.amount) || 0;
+  const currency = (payload.currency || '').trim() || 'RUB';
+  const bank = (payload.bank || '').trim();
+  const text =
+    `✅ <b>P2P — оплачено</b> · ${time}\n` +
+    `👤 ${userLine}\n` +
+    `💸 ${amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ${escapeHtml(currency)}${bank ? ` · 🏦 ${escapeHtml(bank)}` : ''}\n` +
+    (dealId ? `🆔 <code>${escapeHtml(dealId)}</code>` : '');
+  const res = await sendMessage(String(workerId), text);
+  return res.ok ? { ok: true } : { ok: false, error: res.description };
 }
 
 /** Отправляет уведомление об открытии П2П сделки в канал с inline-кнопкой для воркера. Возвращает message_id для последующего редактирования при выдаче реквизитов. */

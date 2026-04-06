@@ -182,9 +182,6 @@ const HomePage: React.FC<HomePageProps> = ({ balance, user, onNavigateToTrading,
 
       <PopularPairs assets={liveAssets} onAssetClick={onNavigateToTrading} />
 
-      <div className="mt-3">
-      </div>
-      
       <div className="mt-4 flex-1 pb-28 lg:pb-12">
         {liveAssets.length === 0 ? (
           <div className="space-y-2">

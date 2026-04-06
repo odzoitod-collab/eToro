@@ -100,9 +100,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           )}
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-semibold text-white truncate">{displayName}</h2>
-            <span className="text-[11px] font-mono text-neutral-500">{displayId}</span>
+            <span className="text-xs font-mono text-neutral-500">{displayId}</span>
             {isWebUser && user?.email && (
-              <p className="text-[11px] text-neutral-500 truncate mt-0.5">{user.email}</p>
+              <p className="text-xs text-neutral-500 truncate mt-0.5">{user.email}</p>
             )}
           </div>
         </div>
@@ -129,7 +129,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             {user?.is_kyc !== true && onNavigateToKyc && (
               <button
                 onClick={() => { Haptic.tap(); onNavigateToKyc(); }}
-                className="mt-2 w-full py-2.5 px-3 bg-neon/90 text-black text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 hover:bg-neon active:scale-[0.99] transition-all"
+                className="mt-2 w-full py-2.5 px-3 bg-neon/90 text-black text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-neon active:scale-[0.99] transition-all"
               >
                 <ShieldCheck size={14} />
                 {t('verify_btn')}
@@ -139,25 +139,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         )}
 
         {isGuest && (
-          <p className="text-[11px] text-neutral-500 mb-5">{t('open_from_telegram')}</p>
+          <p className="text-xs text-neutral-500 mb-5">{t('open_from_telegram')}</p>
         )}
 
         {/* Статистика — минималистичная сетка */}
         <div className="grid grid-cols-3 gap-2 mb-6">
-          <div className="bg-card border border-border rounded-lg px-3 py-2.5 text-center">
-            <Trophy size={14} className="text-emerald-500 mx-auto mb-1" />
+          <div className="bg-card border border-border rounded-xl px-3 py-2.5 text-center">
+            <Trophy size={14} className="text-up mx-auto mb-1" />
             <span className="text-sm font-bold text-white tabular-nums">{wins}</span>
-            <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-0.5">{t('wins')}</p>
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mt-0.5">{t('wins')}</p>
           </div>
-          <div className="bg-card border border-border rounded-lg px-3 py-2.5 text-center">
+          <div className="bg-card border border-border rounded-xl px-3 py-2.5 text-center">
             <XCircle size={14} className="text-red-500/80 mx-auto mb-1" />
             <span className="text-sm font-bold text-white tabular-nums">{losses}</span>
-            <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-0.5">{t('losses')}</p>
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mt-0.5">{t('losses')}</p>
           </div>
-          <div className="bg-card border border-border rounded-lg px-3 py-2.5 text-center">
+          <div className="bg-card border border-border rounded-xl px-3 py-2.5 text-center">
             <BarChart3 size={14} className="text-neon/80 mx-auto mb-1" />
             <span className="text-sm font-bold text-white tabular-nums">{winRate}%</span>
-            <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-0.5">{t('winrate')}</p>
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mt-0.5">{t('winrate')}</p>
           </div>
         </div>
 
@@ -167,13 +167,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); onNavigateToLanguage(); }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <Languages size={16} className="text-neutral-500 group-hover:text-neon/80" />
                 <span className="text-xs font-medium text-neutral-300 group-hover:text-white">{t('language_title')}</span>
               </div>
-              <span className="text-[11px] text-neutral-500 font-mono">{locale === 'en' ? 'EN' : locale === 'ru' ? 'RU' : locale === 'pl' ? 'PL' : locale === 'kk' ? 'KK' : 'CS'}</span>
+              <span className="text-xs text-neutral-500 font-mono">{locale === 'en' ? 'EN' : locale === 'ru' ? 'RU' : locale === 'pl' ? 'PL' : locale === 'kk' ? 'KK' : 'CS'}</span>
               <ChevronRight size={14} className="text-neutral-600 -mr-1" />
             </button>
           )}
@@ -181,13 +181,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); onNavigateToCurrency(); }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <DollarSign size={16} className="text-neutral-500 group-hover:text-neon/80" />
                 <span className="text-xs font-medium text-neutral-300 group-hover:text-white">{t('currency')}</span>
               </div>
-              <span className="text-[11px] text-neutral-500 font-mono">{currencyCode}</span>
+              <span className="text-xs text-neutral-500 font-mono">{currencyCode}</span>
               <ChevronRight size={14} className="text-neutral-600 -mr-1" />
             </button>
           )}
@@ -195,7 +195,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); onNavigateToExchange(); }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <ArrowLeftRight size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -207,7 +207,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           <button
             type="button"
             onClick={() => { Haptic.tap(); setShowLegalModal(true); }}
-            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+            className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
           >
             <div className="flex items-center gap-2.5">
               <FileText size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -226,7 +226,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 setRepeatPinValue('');
                 setPinError('');
               }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <KeyRound size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -246,7 +246,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 setRepeatPinValue('');
                 setPinError('');
               }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <KeyRound size={16} className="text-neutral-500 group-hover:text-neon/80" />
@@ -265,7 +265,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 window.open(supportLink, '_blank', 'noopener,noreferrer');
               }
             }}
-            className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+            className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
           >
             <div className="flex items-center gap-2.5">
               <HelpCircle size={16} className="text-neutral-500 group-hover:text-white" />
@@ -277,7 +277,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => { Haptic.tap(); logout(); window.location.href = '/'; }}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
+              className="w-full bg-card border border-border rounded-xl px-3 py-2.5 flex items-center justify-between group text-left hover:bg-surface active:scale-[0.99] transition-all min-h-[56px]"
             >
               <div className="flex items-center gap-2.5">
                 <LogOut size={16} className="text-neutral-500 group-hover:text-red-400" />
@@ -304,7 +304,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 {t('legal_licenses')}
               </h3>
               <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-3 py-2 border-b border-border grid grid-cols-4 gap-2 text-[10px] font-mono uppercase tracking-cap text-textSecondary">
+                <div className="px-3 py-2 border-b border-border grid grid-cols-4 gap-2 text-xs font-mono uppercase tracking-cap text-textSecondary">
                   <span>Юрисдикция</span>
                   <span>Регулятор</span>
                   <span>Номер</span>
@@ -314,25 +314,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div className="px-3 py-2.5 grid grid-cols-4 gap-2 text-xs">
                     <span className="text-textPrimary">Маврикий</span>
                     <span className="text-textSecondary">FSC</span>
-                    <span className="font-mono text-textPrimary">GBXXXXXX</span>
-                    <span className="text-up text-[10px]">Действующая</span>
+                    <span className="font-mono text-textPrimary">В процессе</span>
+                    <span className="text-up text-xs">Действующая</span>
                   </div>
                   <div className="px-3 py-2.5 grid grid-cols-4 gap-2 text-xs">
                     <span className="text-textPrimary">Сент-Винсент и Гренадины</span>
                     <span className="text-textSecondary">—</span>
-                    <span className="font-mono text-textPrimary">XXXXX</span>
-                    <span className="text-up text-[10px]">Действующая</span>
+                    <span className="font-mono text-textPrimary">На рассмотрении</span>
+                    <span className="text-up text-xs">Действующая</span>
                   </div>
                   <div className="px-3 py-2.5 grid grid-cols-4 gap-2 text-xs">
                     <span className="text-textPrimary">Литва</span>
                     <span className="text-textSecondary">FCIS</span>
-                    <span className="font-mono text-textPrimary">XXXXX</span>
-                    <span className="text-up text-[10px]">Действующая</span>
+                    <span className="font-mono text-textPrimary">На рассмотрении</span>
+                    <span className="text-up text-xs">Действующая</span>
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-textSecondary leading-snug">
-                Company Name Ltd. · Suite 305, Griffith Corporate Centre, Kingstown, St. Vincent and the Grenadines
+              <p className="mt-2 text-xs text-textSecondary leading-snug">
+                В процессе регистрации · Suite 305, Griffith Corporate Centre, Kingstown, St. Vincent and the Grenadines
               </p>
             </section>
 
@@ -345,15 +345,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <div className="space-y-2">
                 <a href="https://www.fscmauritius.org" target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-border bg-card px-3 py-2.5 hover:border-neon transition-colors">
                   <span className="text-sm font-medium text-textPrimary">FSC Mauritius</span>
-                  <span className="block text-[11px] text-textSecondary mt-0.5">Financial Services Commission · Реестр лицензий</span>
+                  <span className="block text-xs text-textSecondary mt-0.5">Financial Services Commission · Реестр лицензий</span>
                 </a>
                 <a href="https://www.fntt.lt" target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-border bg-card px-3 py-2.5 hover:border-neon transition-colors">
                   <span className="text-sm font-medium text-textPrimary">FCIS Lithuania</span>
-                  <span className="block text-[11px] text-textSecondary mt-0.5">Financial Crime Investigation Service · VASP</span>
+                  <span className="block text-xs text-textSecondary mt-0.5">Financial Crime Investigation Service · VASP</span>
                 </a>
                 <a href="https://register.fca.org.uk" target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-border bg-card px-3 py-2.5 hover:border-neon transition-colors">
                   <span className="text-sm font-medium text-textPrimary">FCA UK</span>
-                  <span className="block text-[11px] text-textSecondary mt-0.5">Financial Conduct Authority · Реестр</span>
+                  <span className="block text-xs text-textSecondary mt-0.5">Financial Conduct Authority · Реестр</span>
                 </a>
               </div>
             </section>
@@ -366,21 +366,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               </h3>
               <div className="rounded-xl border border-border bg-card p-3 space-y-3">
                 <div>
-                  <p className="text-[11px] font-medium text-textSecondary mb-1">Tier-1 LP</p>
+                  <p className="text-xs font-medium text-textSecondary mb-1">Tier-1 LP</p>
                   <p className="text-xs text-textPrimary">Goldman Sachs, JP Morgan, UBS, Barclays, Deutsche Bank, Citibank</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium text-textSecondary mb-1">Агрегаторы</p>
+                  <p className="text-xs font-medium text-textSecondary mb-1">Агрегаторы</p>
                   <p className="text-xs text-textPrimary">oneZero, PrimeXM, Integral Development Corp</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium text-textSecondary mb-1">Форматы</p>
+                  <p className="text-xs font-medium text-textSecondary mb-1">Форматы</p>
                   <p className="text-xs text-textPrimary">STP, ECN, Prime of Prime</p>
                 </div>
               </div>
             </section>
 
-            <p className="text-[10px] text-textSecondary leading-snug border-t border-border pt-4">
+            <p className="text-xs text-textSecondary leading-snug border-t border-border pt-4">
               Информация приведена в демонстрационных целях. Изучите юридические документы компании перед использованием сервиса.
             </p>
           </div>

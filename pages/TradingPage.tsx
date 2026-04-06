@@ -265,26 +265,10 @@ function ChartEmbed(props: {
     );
   }
 
-  // CoinGecko полностью отключен по ТЗ: не рендерим web-component.
+  // CoinGecko (GCK) — отключён по ТЗ, не рендерим web-component.
   if (embed.kind === 'gck') return null;
 
-  // GCK (CoinGecko web component)
-  return (
-    <div key={embedKey} className="w-full h-full">
-      <div className="w-full h-full bg-[#131722] overflow-hidden">
-        <gecko-coin-price-chart-widget
-          locale="ru"
-          dark-mode="true"
-          transparent-background="true"
-          coin-id={embed.coinId ?? ''}
-          initial-currency="usd"
-          width="100%"
-          height="100%"
-          style={{ width: '100%', height: '100%', display: 'block' }}
-        />
-      </div>
-    </div>
-  );
+  return null;
 }
 
 const TradingPage: React.FC<TradingPageProps> = ({
@@ -671,8 +655,6 @@ const TradingPage: React.FC<TradingPageProps> = ({
                     : formatPrice(livePrice)
               }
               change24h={displayChange24h ?? 0}
-              interval={interval}
-              onIntervalChange={setInterval}
               chartStyle={chartStyle}
               onChartStyleChange={setChartStyle}
               provider={provider}
@@ -854,13 +836,13 @@ const TradingPage: React.FC<TradingPageProps> = ({
               <section className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-xs font-bold text-neon uppercase tracking-wider mb-2">Плечо</h3>
                 <p className="text-neutral-400 leading-relaxed">
-                  Плечо от <span className="font-mono text-white">1x</span> до <span className="font-mono text-white">20x</span>. Чем выше плечо, тем сильнее влияние изменения цены на результат сделки. Выбор плеча не меняет сумму ставки — меняется только чувствительность к движению цены и риск ликвидации: при высоком плече даже небольшое движение против вас может привести к потере всей суммы сделки.
+                  Плечо от <span className="font-mono text-white">1x</span> до <span className="font-mono text-white">100x</span>. Чем выше плечо, тем сильнее влияние изменения цены на результат сделки. Выбор плеча не меняет сумму ставки — меняется только чувствительность к движению цены и риск ликвидации: при высоком плече даже небольшое движение против вас может привести к потере всей суммы сделки.
                 </p>
               </section>
               <section className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-xs font-bold text-neon uppercase tracking-wider mb-2">Выплата при победе</h3>
                 <p className="text-neutral-400 leading-relaxed">
-                  При выигрышной сделке размер прибыли зависит от того, на сколько процентов изменился актив и какое плечо вы выбрали. Например, если вы поставили <span className="font-mono text-white">{formatPrice(1000)} {symbol}</span> с плечом <span className="font-mono text-white">x20</span>, а цена выросла на <span className="font-mono text-white">5%</span>, ваша прибыль составит около <span className="font-mono text-neon">+{formatPrice(1000)} {symbol}</span> (1000 × 5% × 20). Если же цена на те же 5% пойдёт против вас при большом плече, вы можете потерять всю сумму ставки.
+                  При выигрышной сделке размер прибыли зависит от того, на сколько процентов изменился актив и какое плечо вы выбрали. Например, если вы поставили <span className="font-mono text-white">{formatPrice(1000)} {symbol}</span> с плечом <span className="font-mono text-white">x100</span>, а цена выросла на <span className="font-mono text-white">5%</span>, ваша прибыль составит около <span className="font-mono text-neon">+{formatPrice(5000)} {symbol}</span> (1000 × 5% × 100). Если же цена на те же 5% пойдёт против вас при большом плече, вы можете потерять всю сумму ставки.
                 </p>
               </section>
               <section className="rounded-xl border border-border bg-card p-4">
@@ -1103,45 +1085,61 @@ const TradingPage: React.FC<TradingPageProps> = ({
                         </div>
 
                     {/* Leverage */}
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                         <div className="flex justify-between items-center">
                             <label className="text-[10px] text-neutral-500 uppercase font-bold flex items-center">
                                 <Zap size={10} className="mr-1 text-neon" /> {t('leverage')}
                             </label>
-                            <span className="text-xs font-mono font-bold text-neon">x{leverage}</span>
+                            <span className="text-xs font-mono font-bold text-neon">×{leverage}</span>
                         </div>
                         <input 
                             type="range" 
                             min="1" 
-                            max="20" 
+                            max="100" 
                             step="1"
                             value={leverage}
                             onChange={(e) => { Haptic.tap(); setLeverage(parseInt(e.target.value)); }}
-                            className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-neon"
+                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-neon mt-1"
+                            style={{ background: `linear-gradient(to right, #21B053 ${(leverage - 1) / 99 * 100}%, rgba(255,255,255,0.1) 0%)` }}
                         />
+                        <div className="flex gap-1 pt-0.5">
+                            {[1, 5, 10, 25, 50, 75, 100].map((v) => (
+                                <button
+                                    key={v}
+                                    onClick={() => { Haptic.tap(); setLeverage(v); }}
+                                    className="flex-1 text-[9px] font-mono py-0.5 rounded transition-etoro active:scale-95"
+                                    style={{
+                                        background: leverage === v ? 'rgba(33,176,83,0.15)' : 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${leverage === v ? 'rgba(33,176,83,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                                        color: leverage === v ? '#21B053' : '#6E7A8C',
+                                    }}
+                                >
+                                    ×{v}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Duration */}
                     <div className="space-y-0.5">
-                        <label className="text-[10px] text-neutral-500 uppercase font-bold flex items-center">
-                            <Clock size={10} className="mr-1 text-neon" /> {t('time')}
-                        </label>
-                        <div className="grid grid-cols-4 gap-1.5">
-                            {TIMEFRAMES.map((tf) => (
-                                <button
-                                    key={tf.sec}
-                                    onClick={() => { Haptic.tap(); setDuration(tf.sec); }}
-                                    className={`py-1 rounded-md text-[10px] font-mono font-bold transition-all border
-                                        ${duration === tf.sec 
-                                            ? 'bg-neutral-800 text-white border-neon/50' 
-                                            : 'bg-card text-textSecondary border-border'
-                                        }
-                                    `}
-                                >
-                                    {tf.label}
-                                </button>
-                            ))}
+                        <div className="flex justify-between items-center">
+                            <label className="text-[10px] text-neutral-500 uppercase font-bold flex items-center">
+                                <Clock size={10} className="mr-1 text-neon" /> {t('time')}
+                            </label>
+                            <span className="text-xs font-mono font-bold text-neon">
+                                {TIMEFRAMES.find(tf => tf.sec === duration)?.label ?? `${duration}с`}
+                            </span>
                         </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max={TIMEFRAMES.length - 1}
+                            step="1"
+                            value={TIMEFRAMES.findIndex(tf => tf.sec === duration).toString() === '-1' ? '1' : TIMEFRAMES.findIndex(tf => tf.sec === duration).toString()}
+                            onChange={(e) => { Haptic.tap(); setDuration(TIMEFRAMES[parseInt(e.target.value)].sec); }}
+                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-neon mt-1"
+                            style={{ background: `linear-gradient(to right, #21B053 ${TIMEFRAMES.findIndex(tf => tf.sec === duration) / (TIMEFRAMES.length - 1) * 100}%, rgba(255,255,255,0.1) 0%)` }}
+                        />
                     </div>
 
                     {/* Side Toggle (Small Buttons) */}

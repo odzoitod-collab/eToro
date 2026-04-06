@@ -1,0 +1,1 @@
+import{j as s}from"./index-DXTMuYvm.js";import{c as t}from"./vendor-recharts-BwX0znUB.js";const m=({className:e="",rounded:r=!0})=>s.jsx("div",{className:t("bg-neutral-800/80 animate-pulse",r?"rounded-lg":"",e)});export{m as S};

@@ -132,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate, hide
                 Открытая П2П-сделка · {p2pSummary.amount.toLocaleString('ru-RU')} {p2pSummary.currency}
               </span>
               {p2pSummary.status === 'payment' && typeof p2pSummary.timeLeft === 'number' && (
-                <span className="ml-1 text-[10px] font-mono flex items-center gap-1">
+                <span className="ml-1 text-xs font-mono flex items-center gap-1">
                   ⏱ {Math.max(0, Math.floor(p2pSummary.timeLeft / 60))
                     .toString()
                     .padStart(2, '0')}

@@ -3,7 +3,7 @@ import AssetTable, { FilterType } from '../components/AssetTable';
 import { MARKET_ASSETS, FOREX_MARKET_ASSETS } from '../constants';
 import { Asset } from '../types';
 import type { SpotHolding, StakingPosition, StakingRate } from '../types';
-import { Search, TrendingUp, Info } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { usePin } from '../context/PinContext';
@@ -14,12 +14,9 @@ import { useLiveAssets } from '../utils/useLiveAssets';
 import Skeleton from '../components/Skeleton';
 import { stake, unstake } from '../lib/staking';
 import { useToast } from '../context/ToastContext';
-import StakingCreateScreen from './StakingCreateScreen';
 import BottomSheet from '../components/BottomSheet';
 import BottomSheetFooter from '../components/BottomSheetFooter';
 import { APP_TOP_BAR_CLASS, APP_TOP_BAR_STYLE } from '../components/appTopBar';
-
-const STAKING_TICKERS = ['BTC', 'ETH', 'SOL'];
 
 interface CoinsPageProps {
   onNavigateToTrading: (asset: Asset, options?: { tradeType?: 'futures' | 'spot'; spotAction?: 'buy' | 'sell' }) => void;
@@ -50,7 +47,6 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('Top');
   const [marketMode, setMarketMode] = useState<'crypto' | 'forex'>('crypto');
-  const [stakeScreen, setStakeScreen] = useState<{ ticker: string; maxAmount: number; ratePerMonth: number } | null>(null);
   const [unstakeTicker, setUnstakeTicker] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { requirePin } = usePin();
@@ -111,19 +107,6 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
     return sorted;
   }, [searchQuery, liveMarket, activeFilter]);
 
-  const handleOpenStake = (ticker: string) => {
-    const holding = spotByTicker[ticker];
-    const maxAmount = holding ? holding.amount : 0;
-    if (maxAmount <= 0) {
-      const asset = liveMarket.find((a) => a.ticker === ticker);
-      if (asset) onNavigateToTrading(asset, { tradeType: 'spot', spotAction: 'buy' });
-      return;
-    }
-    const rate = rateByTicker[ticker];
-    Haptic.tap();
-    setStakeScreen({ ticker, maxAmount, ratePerMonth: rate?.ratePerMonth ?? 0.13 });
-  };
-
   const handleUnstake = async (ticker: string) => {
     if (userId <= 0) return;
     const asset = liveMarket.find((a) => a.ticker === ticker);
@@ -178,7 +161,7 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
                   setActiveFilter(filter.key);
                 }}
                 className={`
-                whitespace-nowrap px-3 py-1.5 rounded-md text-[11px] font-mono uppercase tracking-wide transition-all active:scale-95
+                whitespace-nowrap px-3 py-2 min-h-[44px] rounded-lg text-xs font-mono uppercase tracking-wide transition-all active:scale-95
                 ${activeFilter === filter.key ? 'bg-card text-neon font-semibold border border-neon/50' : 'text-textSecondary hover:text-textPrimary hover:bg-card/60 border border-transparent'}
               `}
               >
@@ -197,7 +180,7 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
                 Haptic.tap();
                 setMarketMode('crypto');
               }}
-              className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wide transition-all active:scale-95 ${
+              className={`whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-mono uppercase tracking-wide transition-all active:scale-95 ${
                 marketMode === 'crypto'
                   ? 'bg-card text-neon font-semibold border border-neon/40'
                   : 'text-textSecondary hover:text-textPrimary border border-transparent'
@@ -211,7 +194,7 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
                 Haptic.tap();
                 setMarketMode('forex');
               }}
-              className={`whitespace-nowrap px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wide transition-all active:scale-95 ${
+              className={`whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-mono uppercase tracking-wide transition-all active:scale-95 ${
                 marketMode === 'forex'
                   ? 'bg-card text-neon font-semibold border border-neon/40'
                   : 'text-textSecondary hover:text-textPrimary border border-transparent'
@@ -224,83 +207,6 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
       </header>
 
       <div className="px-4 pb-56 pt-2 min-h-screen">
-        {/* Стейкинг убран: блок ниже больше не показывается */}
-        {false && userId > 0 && (
-          <section className="mb-4">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-[11px] font-mono uppercase tracking-wide text-neutral-500 flex items-center gap-1.5">
-                <TrendingUp size={12} className="text-neon" />
-                {t('special_offer')} · {t('staking_title')}
-              </span>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-surface overflow-hidden">
-              <div className="p-3 border-b border-white/5 flex items-start gap-2">
-                <Info size={14} className="text-neon flex-shrink-0 mt-0.5" />
-                <p className="text-[11px] text-neutral-400 leading-snug">
-                  {t('staking_what_is')}
-                </p>
-              </div>
-              <div className="px-3 pb-2">
-                <p className="text-[10px] text-neutral-500 leading-snug">
-                  {t('staking_rewards_to_balance')}
-                </p>
-              </div>
-              <div className="p-2">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                  {STAKING_TICKERS.map((ticker) => {
-                    const rate = rateByTicker[ticker];
-                    const spot = spotByTicker[ticker];
-                    const position = stakingPositions.find((p) => p.ticker === ticker);
-                    const pct = rate ? Math.round(rate.ratePerMonth * 100) : 13;
-                    const hasSpot = (spot?.amount ?? 0) > 0;
-                    return (
-                      <button
-                        key={ticker}
-                        onClick={() => handleOpenStake(ticker)}
-                        className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-card hover:bg-surface border border-border hover:border-neon transition-all text-left min-w-0"
-                      >
-                        <span className="font-mono font-semibold text-white text-sm">{ticker}</span>
-                        <span className="text-[10px] font-mono text-neon">~{pct}%</span>
-                        {position && (
-                          <span className="text-[10px] text-neutral-400 font-mono" title={`${position.amount.toFixed(4)}`}>
-                            ✓
-                          </span>
-                        )}
-                        {!hasSpot && !position && (
-                          <span className="text-[9px] text-neutral-500">→</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {stakingPositions.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
-                    {stakingPositions.map((pos) => {
-                      const asset = liveMarket.find((a) => a.ticker === pos.ticker);
-                      const price = asset?.price ?? 0;
-                      const valueRub = price * pos.amount;
-                      return (
-                        <div key={pos.ticker} className="flex items-center justify-between gap-2 py-1">
-                          <span className="text-xs font-mono text-white">{pos.ticker}</span>
-                          <span className="text-[10px] text-neutral-400 font-mono truncate flex-1 text-right mx-1">
-                            {pos.amount.toFixed(4)} {asset?.priceUnavailable ? '—' : price > 0 ? `≈ ${valueRub.toFixed(0)} ₽` : ''}
-                          </span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); Haptic.tap(); setUnstakeTicker(pos.ticker); }}
-                            className="px-2 py-0.5 rounded text-[10px] font-mono border border-border text-textSecondary hover:bg-card"
-                          >
-                            {t('unstake_btn')}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
         {liveMarket.length === 0 ? (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, idx) => (
@@ -340,24 +246,6 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
         )}
       </div>
 
-      {/* Стейкинг временно отключён */}
-      {false && stakeScreen && pinUserId && (
-        <StakingCreateScreen
-          ticker={stakeScreen.ticker}
-          maxAmount={stakeScreen.maxAmount}
-          ratePerMonth={stakeScreen.ratePerMonth}
-          userId={userId}
-          pinUserId={pinUserId}
-          requirePin={requirePin}
-          onClose={() => setStakeScreen(null)}
-          onSuccess={(ticker, amount) => {
-            refreshStaking();
-            onReferralStake?.(ticker, amount);
-          }}
-          onError={(msg) => toast.show(msg, 'error')}
-        />
-      )}
-
       {/* Модалка вывода из стейкинга */}
       {unstakeTicker != null && (() => {
         const pos = stakingPositions.find((p) => p.ticker === unstakeTicker);
@@ -379,11 +267,11 @@ const CoinsPage: React.FC<CoinsPageProps> = ({
               <p className="text-lg font-mono font-bold text-neon">
                 {amount.toFixed(8)} {unstakeTicker}
               </p>
-              <p className="text-[11px] text-textMuted mt-0.5">
+              <p className="text-xs text-textMuted mt-0.5">
                 {asset?.priceUnavailable ? '—' : price > 0 ? `≈ ${amountRub.toFixed(0)} ${symbol}` : ''}
               </p>
             </div>
-            <p className="text-[10px] text-textMuted mb-4">
+            <p className="text-xs text-textMuted mb-4">
               {t('unstake_principal_only')}
             </p>
             <BottomSheetFooter

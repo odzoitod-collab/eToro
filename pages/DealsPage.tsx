@@ -107,12 +107,12 @@ const DealsPage: React.FC<DealsPageProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {activeDeals.length > 0 && (
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-textMuted">P&L</p>
+                <p className="text-[9px] uppercase tracking-wider text-textMuted">P&L</p>
                 <p
-                  className={`text-sm font-mono font-bold ${
+                  className={`text-xs font-mono font-bold ${
                     totalPnlActive >= 0 ? 'text-up' : 'text-down'
                   }`}
                 >
@@ -128,9 +128,9 @@ const DealsPage: React.FC<DealsPageProps> = ({
                   Haptic.tap();
                   onNavigateToExchange();
                 }}
-                className="touch-target min-h-[36px] px-3 rounded-xl bg-neon/20 text-neon border border-neon/40 text-xs font-bold hover:bg-neon/30 active:scale-[0.98] transition-all flex items-center gap-1.5"
+                className="min-h-[28px] px-2 rounded-lg bg-neon/20 text-neon border border-neon/40 text-[10px] font-bold hover:bg-neon/30 active:scale-[0.98] transition-all flex items-center gap-1"
               >
-                <ArrowLeftRight size={14} />
+                <ArrowLeftRight size={11} />
                 {t('exchange_title')}
               </button>
             )}
@@ -184,7 +184,7 @@ const DealsPage: React.FC<DealsPageProps> = ({
                   <span>Пара / Направление</span>
                   <span className="text-right">Вход</span>
                   <span className="text-right">P&L</span>
-                  <span className="text-right">Осталось</span>
+                  <span className="text-right">Закрытие</span>
                 </div>
                 {activeDeals.map((deal) => {
                   const isProfitable = (deal.pnl ?? 0) >= 0;
@@ -232,10 +232,16 @@ const DealsPage: React.FC<DealsPageProps> = ({
                         <span className="text-[10px] text-textMuted block">{symbol}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-sm font-mono font-bold text-textPrimary tabular-nums">
-                          {formatTimeLeft(deal)}
-                        </span>
-                        <span className="text-[10px] text-textMuted block">{t('left')}</span>
+                        {deal.durationSeconds === 0 ? (
+                          <span className="text-xs text-textMuted font-medium">Ручное<br/>закрытие</span>
+                        ) : (
+                          <>
+                            <span className="text-sm font-mono font-bold text-textPrimary tabular-nums">
+                              {formatTimeLeft(deal)}
+                            </span>
+                            <span className="text-[10px] text-textMuted block">{t('left')}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

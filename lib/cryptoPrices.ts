@@ -212,7 +212,22 @@ export interface CoinPriceData {
 const FETCH_TIMEOUT_MS = 12_000;
 
 /** Публичный CORS-прокси для обхода блокировки при запросе с другого origin (например, Vercel). */
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+];
+
+async function fetchViaProxy(url: string, signal?: AbortSignal): Promise<Response> {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const res = await fetch(proxy + encodeURIComponent(url), { signal });
+      if (res.ok) return res;
+    } catch {
+      // try next proxy
+    }
+  }
+  throw new Error('All proxies failed');
+}
 
 async function fetchWithCorsFallback(url: string, signal?: AbortSignal): Promise<Response> {
   try {
@@ -220,10 +235,21 @@ async function fetchWithCorsFallback(url: string, signal?: AbortSignal): Promise
     if (res.ok) return res;
     throw new Error('Not OK');
   } catch (e) {
-    const proxyUrl = CORS_PROXY + encodeURIComponent(url);
-    const proxyRes = await fetch(proxyUrl, { signal });
-    if (!proxyRes.ok) throw new Error('Proxy failed');
-    return proxyRes;
+    return fetchViaProxy(url, signal);
+  }
+}
+
+/**
+ * Для некоторых публичных API (CoinGecko) прямой fetch в браузере часто падает/логирует ошибку в консоль.
+ * Чтобы не засорять консоль и сеть, можно сразу идти через прокси.
+ */
+async function fetchViaProxyFirst(url: string, signal?: AbortSignal): Promise<Response> {
+  try {
+    return await fetchViaProxy(url, signal);
+  } catch {
+    // fallback: вдруг все прокси недоступны, попробуем напрямую
+    const res = await fetch(url, { signal });
+    return res;
   }
 }
 
@@ -259,7 +285,8 @@ async function tryCoinGecko(tickers: string[]): Promise<Record<string, CoinPrice
     const ids = tickers.map((t) => TICKER_TO_COINGECKO_ID[t.toUpperCase()]).filter(Boolean);
     if (ids.length === 0) return {};
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.slice(0, 30).join(',')}&vs_currencies=rub&include_24hr_change=true`;
-    const res = await fetchWithCorsFallback(url, ac.signal);
+    // proxy-first: убирает "Fetch failed loading" в консоли, если прямой запрос блокируется
+    const res = await fetchViaProxyFirst(url, ac.signal);
     clearTimeout(timeoutId);
     if (!res.ok) return {};
     const data: Record<string, { rub?: number; rub_24h_change?: number }> = await res.json();
@@ -286,7 +313,8 @@ async function tryBinance(tickers: string[]): Promise<Record<string, CoinPriceDa
     const symbolsParam = encodeURIComponent(JSON.stringify(symbols));
     const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbols=${symbolsParam}`;
     const [priceRes, rubRes] = await Promise.all([
-      fetchWithCorsFallback(priceUrl, ac.signal),
+      // proxy-first: прямой запрос к Binance часто даёт CORS/blocked и логирует ошибку в консоль
+      fetchViaProxyFirst(priceUrl, ac.signal),
       fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json', { signal: ac.signal }),
     ]);
     clearTimeout(timeoutId);

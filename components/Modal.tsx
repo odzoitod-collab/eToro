@@ -22,11 +22,6 @@ const Modal: React.FC<ModalProps> = ({
   children,
   closeOnBackdrop = false,
 }) => {
-  const handleClose = () => {
-    Haptic.tap();
-    onClose();
-  };
-
   if (!open) return null;
 
   return (
@@ -36,7 +31,12 @@ const Modal: React.FC<ModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      onClick={handleBackdropClick}
+      onClick={(e) => {
+        if (closeOnBackdrop !== false && e.target === e.currentTarget) {
+          Haptic.tap();
+          onClose();
+        }
+      }}
     >
       <div
         className="w-full max-w-xs bg-card border border-border rounded-2xl shadow-2xl px-4 pt-4 pb-3"

@@ -13,89 +13,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              /* Фон и поверхности */
-              background: '#131722',
-              surface: '#161b26',
-              card: '#1c212e',
-              border: '#2A3142',
-              surfaceElevated: '#1e2636',
-              subtle: '#1a2235',
-              /* Семантика: акцент только для действий и активных состояний */
-              neon: '#21B053',
-              accent: '#21B053',
-              accentMuted: 'rgba(33, 176, 83, 0.14)',
-              up: '#10b981',
-              down: '#f87171',
-              /* Текст: чёткая иерархия (подписи не «размыты») */
-              ink: '#F2F4F7',
-              textPrimary: '#ECEEF1',
-              textSecondary: '#A8B3C0',
-              textMuted: '#8B96A8',
-              textSubtle: '#6E7A8C',
-              textCaption: '#9AA5B5',
-              /* Разделители без «тяжёлых» рамок */
-              hairline: 'rgba(255, 255, 255, 0.06)',
-              hairlineStrong: 'rgba(255, 255, 255, 0.09)',
-            },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['Roboto Mono', 'monospace'],
-            },
-            fontSize: {
-              'cap': ['10px', { lineHeight: '1.25', letterSpacing: '0.05em' }],
-            },
-            letterSpacing: {
-              'heading': '-0.02em',
-              'cap': '0.05em',
-            },
-            borderRadius: {
-              card: '12px',
-              modal: '16px',
-              strict: '4px',
-            },
-            boxShadow: {
-              'none': 'none',
-              'glass': '0 0 0 1px rgba(255, 255, 255, 0.08)',
-            },
-            transitionDuration: {
-              'hover': '200ms',
-              'card': '300ms',
-              'modal': '300ms',
-            },
-            transitionTimingFunction: {
-              'etoro': 'cubic-bezier(0.4, 0, 0.2, 1)',
-              'etoro-smooth': 'cubic-bezier(0.25, 0.8, 0.25, 1)',
-            },
-            /* Сетка 4px/8px: spacing для блоков и плотных таблиц */
-            spacing: {
-              '0.5': '2px',
-              '1': '4px',
-              '2': '8px',
-              '3': '12px',
-              '4': '16px',
-              '5': '20px',
-              '6': '24px',
-              '8': '32px',
-              '10': '40px',
-              '12': '48px',
-              'panel': '16px',   /* внешние отступы панелей */
-              'block': '24px',   /* между логическими блоками (стакан/график/форма) */
-              'table': '4px',    /* внутренние отступы в таблицах (data density) */
-            },
-            backdropBlur: {
-              glass: '12px',
-              modal: '16px',
-            },
-          },
-        },
-      }
-    </script>
     <style>
       /* --- Design tokens: 4/8px grid, motion, colors --- */
       :root {
@@ -124,6 +41,27 @@
         .landing-animate,
         .landing-float {
           animation: none !important;
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        .animate-fade-in,
+        .animate-sheet-up,
+        .animate-slide-in-right,
+        .animate-slide-up,
+        .animate-modal-in,
+        .animate-scale-in,
+        .animate-marquee,
+        .animate-flash-up,
+        .animate-flash-down,
+        .animate-pulse,
+        .animate-chart-in,
+        .animate-price-fade,
+        .animate-check-draw,
+        .animate-check-stroke,
+        .animate-circle-fade,
+        [class*="animate-"] {
+          animation: none !important;
+          transition: none !important;
           opacity: 1 !important;
           transform: none !important;
         }
@@ -320,6 +258,11 @@
         100% { opacity: 0.02; }
       }
 
+      /* Simple triangle shape for auth decor */
+      .clip-triangle {
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+      }
+
       /* Order Book: Flash effect — мягкая смена цвета при обновлении цены (300ms) */
       @keyframes flash-up {
         from { background-color: var(--color-flash-up); }
@@ -389,22 +332,14 @@
         padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
       }
     </style>
-
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "recharts": "https://esm.sh/recharts@^3.7.0"
-  }
-  }
-</script>
-  <script type="module" crossorigin src="/assets/index-BwAa3scm.js"></script>
+  <script type="module" crossorigin src="/assets/index-DXTMuYvm.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/vendor-lucide-HyyihJrD.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-react-Dfamihk2.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-supabase-BbNJ08op.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-eHrpoV00.css">
 </head>
   <body>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
     <div id="root"></div>
 </body>
 </html>

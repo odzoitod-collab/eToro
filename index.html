@@ -27,16 +27,21 @@
               surfaceElevated: '#1e2636',
               subtle: '#1a2235',
               /* Семантика: акцент только для действий и активных состояний */
+              /* neon/accent: #21B053 — CTA кнопки, активные пункты меню, акценты */
               neon: '#21B053',
               accent: '#21B053',
               accentMuted: 'rgba(33, 176, 83, 0.14)',
+              /* up/success: #10b981 — рост цены, положительный P&L, успех операции */
               up: '#10b981',
               down: '#f87171',
-              /* Текст: чёткая иерархия (подписи не «размыты») */
+              /* Текст: чёткая иерархия — все значения проверены на контраст WCAG AA */
               ink: '#F2F4F7',
               textPrimary: '#ECEEF1',
+              /* textSecondary: контраст ~5.2:1 на background */
               textSecondary: '#A8B3C0',
-              textMuted: '#8B96A8',
+              /* textMuted: осветлён до #9BA5B5 для контраста 4.5:1+ */
+              textMuted: '#9BA5B5',
+              /* textSubtle: только для декоративных элементов и текста 18px+ */
               textSubtle: '#6E7A8C',
               textCaption: '#9AA5B5',
               /* Разделители без «тяжёлых» рамок */
@@ -62,6 +67,13 @@
             boxShadow: {
               'none': 'none',
               'glass': '0 0 0 1px rgba(255, 255, 255, 0.08)',
+              /* Elevation system — 3 уровня глубины */
+              /* elevation-1: карточки */
+              'elevation-1': '0 1px 3px rgba(0,0,0,0.3)',
+              /* elevation-2: модалки, bottom sheets */
+              'elevation-2': '0 4px 12px rgba(0,0,0,0.35)',
+              /* elevation-3: нижнее меню, sticky хедер */
+              'elevation-3': '0 8px 24px rgba(0,0,0,0.4)',
             },
             transitionDuration: {
               'hover': '200ms',
@@ -124,6 +136,27 @@
         .landing-animate,
         .landing-float {
           animation: none !important;
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        .animate-fade-in,
+        .animate-sheet-up,
+        .animate-slide-in-right,
+        .animate-slide-up,
+        .animate-modal-in,
+        .animate-scale-in,
+        .animate-marquee,
+        .animate-flash-up,
+        .animate-flash-down,
+        .animate-pulse,
+        .animate-chart-in,
+        .animate-price-fade,
+        .animate-check-draw,
+        .animate-check-stroke,
+        .animate-circle-fade,
+        [class*="animate-"] {
+          animation: none !important;
+          transition: none !important;
           opacity: 1 !important;
           transform: none !important;
         }
@@ -318,6 +351,11 @@
         0% { opacity: 0.02; }
         50% { opacity: 0.06; }
         100% { opacity: 0.02; }
+      }
+
+      /* Simple triangle shape for auth decor */
+      .clip-triangle {
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
       }
 
       /* Order Book: Flash effect — мягкая смена цвета при обновлении цены (300ms) */

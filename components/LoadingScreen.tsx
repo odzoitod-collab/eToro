@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 /**
  * Экран загрузки — логотип eToro.
  * Текст «eToro» с акцентом на «e», подзаголовок «Trade & Invest».
+ *
+ * FIX: таймаут-fallback 2000ms гарантирует продолжение работы даже если
+ * onAnimationEnd не сработает (Android WebView, SVG-анимации).
  */
 interface LoadingScreenProps {
   onAnimationComplete?: () => void;
 }
 
-const LoadingScreen: React.FC<LoadingScreenProps> = ({ onAnimationComplete }) => (
+const LoadingScreen: React.FC<LoadingScreenProps> = ({ onAnimationComplete }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => onAnimationComplete?.(), 2000);
+    return () => clearTimeout(timer);
+  }, [onAnimationComplete]);
+
+  return (
   <div className="h-[100dvh] w-full bg-background flex items-center justify-center overflow-hidden">
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -67,13 +76,13 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onAnimationComplete }) =>
           fontSize="13"
           fill="#6B7280"
           fontWeight="500"
-          onAnimationEnd={onAnimationComplete}
         >
           TRADE & INVEST
         </text>
       </g>
     </svg>
   </div>
-);
+  );
+};
 
 export default LoadingScreen;

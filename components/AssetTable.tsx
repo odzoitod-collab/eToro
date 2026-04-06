@@ -98,7 +98,7 @@ const AssetTable: React.FC<AssetTableProps> = ({
                     ? formatFxRateQuote(asset.price / rubPerUsd)
                     : formatPrice(asset.price)}
               </span>
-              <span className="text-[9px] text-textSecondary">
+              <span className="text-[11px] text-textSecondary">
                 {asset.category === 'forex' ? 'FX' : symbol}
               </span>
             </div>
@@ -106,7 +106,7 @@ const AssetTable: React.FC<AssetTableProps> = ({
               <span className={`text-xs font-mono font-medium tabular-nums ${(asset.change24h ?? 0) >= 0 ? 'text-up' : 'text-down'}`}>
                 {asset.change24h > 0 ? '+' : ''}{(asset.change24h ?? 0).toFixed(2)}%
               </span>
-              <span className="text-[9px] text-textSecondary">{formatVol(asset.volume24h)}</span>
+              <span className="text-[11px] text-textSecondary">{formatVol(asset.volume24h)}</span>
             </div>
           </div>
         ))}

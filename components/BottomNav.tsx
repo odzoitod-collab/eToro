@@ -9,6 +9,18 @@ interface BottomNavProps {
   onNavigate: (page: PageView) => void;
 }
 
+const pageToNav: Partial<Record<PageView, PageView>> = {
+  DEPOSIT: 'HOME',
+  WITHDRAW: 'HOME',
+  PROFILE: 'HOME',
+  KYC: 'HOME',
+  SUPPORT: 'HOME',
+  LANGUAGE: 'HOME',
+  CURRENCY: 'HOME',
+  QR_SCANNER: 'HOME',
+  EXCHANGE: 'STAKING',
+};
+
 const BottomNav: React.FC<BottomNavProps> = ({ currentPage, onNavigate }) => {
   const { t } = useLanguage();
   const navItems: NavItem[] = [
@@ -18,19 +30,20 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentPage, onNavigate }) => {
     { id: 'STAKING', label: t('staking_title'), icon: Percent },
     { id: 'DEALS', label: t('nav_deals'), icon: Briefcase },
   ];
+
+  const activeNav = pageToNav[currentPage] ?? currentPage;
+
   return (
     <nav
-      className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl bg-card shadow-[0_-10px_36px_rgba(0,0,0,0.4)]"
+      className="fixed left-0 right-0 bottom-0 z-50 rounded-t-2xl bg-card shadow-elevation-3"
       style={{
         paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))',
       }}
     >
       <div className="flex justify-around items-stretch min-h-[56px] px-1 pt-2 pb-0">
         {navItems.map((item) => {
-          const isActive = currentPage === item.id;
+          const isActive = activeNav === item.id;
           const Icon = item.icon;
-          const stroke = 2;
-
           return (
             <button
               key={item.id}
@@ -43,10 +56,10 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentPage, onNavigate }) => {
                 }`}
                 style={{ width: 40, height: 32 }}
               >
-                <Icon size={22} strokeWidth={stroke} />
+                <Icon size={22} strokeWidth={2} />
               </div>
               <span
-                className={`text-[11px] font-medium tracking-tight transition-colors duration-200 truncate w-full text-center leading-none ${
+                className={`text-xs font-medium tracking-tight transition-colors duration-200 truncate w-full text-center leading-none ${
                   isActive ? 'text-neon' : 'text-textSecondary'
                 }`}
               >

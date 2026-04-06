@@ -12,3 +12,22 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  Telegram?: {
+    WebApp?: {
+      ready: () => void;
+      expand: () => void;
+      close: () => void;
+      version: string;
+      initData: string;
+      initDataUnsafe: Record<string, any>;
+      setHeaderColor: (color: string) => void;
+      setBackgroundColor: (color: string) => void;
+      setBottomBarColor: (color: string) => void;
+      enableClosingConfirmation: () => void;
+      disableVerticalSwipes: () => void;
+      [key: string]: any;
+    };
+  };
+}

@@ -76,8 +76,6 @@ export function getChartEmbed(asset: Asset, options: GetChartEmbedOptions): Char
       'candleStyle.downColor': '#f87171',
       'candleStyle.borderUpColor': '#10b981',
       'candleStyle.borderDownColor': '#f87171',
-      'candleStyle.wickUpColor': '#10b981',
-      'candleStyle.wickDownColor': '#f87171',
     };
 
     const params = new URLSearchParams({
